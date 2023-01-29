@@ -1,4 +1,5 @@
 (executable
  (public_name acg)
  (name main)
- (libraries acg))
+ (libraries acg)
+ (modules_without_implementation acg))
