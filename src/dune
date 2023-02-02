@@ -1,5 +1,10 @@
-(executable
+(library
  (public_name acg)
+ (name acg)
+ (modules acg))
+
+(executable
+ (public_name main)
  (name main)
  (libraries acg)
- (modules_without_implementation acg))
+ (modules main))
