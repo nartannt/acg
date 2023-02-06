@@ -60,13 +60,20 @@ let rec substitute_var term var_id substitute_term = match term with
 
 
 
-(*let normalised_lambda_term term = function
+let rec normalised_term = function
     | Constant c -> Constant c
     | Var var_id -> Var var_id
-    | Abs (var_id, sub_term) -> Abs (var_id, normalised_lambda_term sub_term)
+    | Abs (var_id, sub_term) -> Abs (var_id, normalised_term sub_term)
     | App (left_term, right_term) -> 
             match left_term with
-                | Abs (var_id, sub_term) -> *)
+                | Abs (var_id, sub_term) ->
+                        let normalised_left_term = normalised_term sub_term in
+                        let normalised_right_term = normalised_term right_term in
+                        substitute_var normalised_left_term var_id normalised_right_term
+                | _ ->
+                        let normalised_left_term = normalised_term left_term in
+                        let normalised_right_term = normalised_term right_term in
+                        App(normalised_left_term, normalised_right_term)
 
 
 (*given a function to type constants and a context (that types the free variables in a term)
