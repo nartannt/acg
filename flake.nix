@@ -28,6 +28,7 @@
       buildInputs = with pkgs; [
         ocaml
         dune_3
+        ocamlformat
       ]
         ++ (with ocamlPackages; [
           merlin
