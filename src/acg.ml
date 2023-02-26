@@ -87,7 +87,7 @@ let rec normalised_term = function
 
   (*find the most general type for a given lambda term and give the appropriate type equations*)
   (* type_eq will contain pairs that represent equality constraints on types*)
-let rec infer_type_eq term type_eq (constant_type: 'a lambda_term -> 'a linear_implicative_type) = match term with
+let rec infer_type_eq (term: 'a lambda_term) type_eq (constant_type: 'a -> 'a linear_implicative_type) = match term with
     | Constant c -> constant_type c, type_eq
     | Var var_id -> Var var_id, type_eq (*pretty useful to be able to associate a variable and its type variable easily, doesn't seem very clean though*)
     | Abs (var_id, sub_term) -> 
@@ -118,7 +118,7 @@ let rec substitute_in_type type_to_change type_to_replace replacement_type =
 (*given a list of type equations and a substitution, will substitute the approriate terms in the equations*)
 let simplify_eq type_eq type_to_replace replacement_type = List.map (fun (a, b) -> ((substitute_in_type a type_to_replace replacement_type), (substitute_in_type b type_to_replace replacement_type))) type_eq
 
-(*given a type variable will check whether it appears free in anothe type, that is whether is appears in our case*)
+(*given a type variable will check whether it appears free in anothe type, that is whether it appears at all for us*)
 let rec free_in type_var_id type_to_check = match type_to_check with
     | Atom _ -> false
     | Var var_id when type_var_id = var_id -> true
@@ -170,12 +170,11 @@ let rec unify_eq (type_eq: ('a linear_implicative_type * 'a linear_implicative_t
                 unify_eq (eq_res@t) substitution
             else None
 
-let infer_term_type term constant_type =
+let infer_term_type (term: 'a lambda_term) (constant_type: 'a  -> 'a linear_implicative_type) =
     let tmp_type, type_eq = infer_type_eq term [] constant_type in
     let substitutions_opt = unify_eq type_eq [] in
     match substitutions_opt with
         | Some substitutions -> Some (List.fold_left (fun type_to_change (type_to_replace, replacement_type) -> substitute_in_type type_to_change type_to_replace replacement_type ) tmp_type substitutions)
-
         | None -> None
 
   (*check that the given lambda term can be typed with the target type*)

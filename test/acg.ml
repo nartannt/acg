@@ -68,3 +68,83 @@ let () =
   assert (
     App (constant_app, App (constant_term, constant_app))
     = normalised_term (App (redex_term, double_redex_term)))
+
+
+(*big section for testing some of the functions used in the unification algorithm*)
+
+(*testing substitute_in_type*)
+let type_1 = Arrow(Var 1, Atom 0)
+let type_2 = Atom 1
+let () = assert (Arrow (Atom 1, Atom 0) = substitute_in_type type_1 (Var 1) type_2)
+
+let type_1 = Arrow(Var 1, Var 1)
+let type_2 = Atom 1
+let () = assert (Arrow (Atom 1, Atom 1) = substitute_in_type type_1 (Var 1) type_2)
+
+let type_1 = Arrow(Var 1, Var 1)
+let type_2 = Arrow (Atom 0, Var 1)
+let () = assert (Arrow (type_2, type_2) = substitute_in_type type_1 (Var 1) type_2)
+
+let type_1 = Arrow(Var 1, Var 1)
+let type_2 = Arrow (Atom 0, Var 1)
+(*this test should work no matter what type_1 and type_2 are*)
+let () = assert (type_2 = substitute_in_type type_1 type_1 type_2)
+
+(*wasn't very thourough with these tests but it will do for now*)
+
+
+(*tests for infer_term_type*)
+let constant_type n = Atom n
+
+let infer_type (term: 'a lambda_term) = infer_term_type term constant_type
+
+(*constants*)
+let term_1 = Constant 0
+let type_1 = Atom 0
+let () = assert (infer_type term_1 = Some(type_1))
+
+(*variables*)
+let term_1 = Var 1515
+let type_res = infer_type term_1
+let () =
+    match type_res with
+        | Some (Var _) -> assert true
+        | _ -> assert false
+
+(*lambda abstractions*)
+let constant_type_abs n = match n with
+    | 0 -> Arrow (Atom 0, Atom 1)
+    | 1 -> Arrow (Arrow (Atom 0, Atom 1), Atom 2)
+    | _ -> Atom n
+let term_1 = Abs (0, App(Constant 0, Var 0))
+let type_1 = Arrow (Atom 0, Atom 1)
+let () = assert (infer_term_type term_1 constant_type_abs= Some(type_1))
+
+let term_1 = Abs (0, Var 0)
+let () = match infer_type term_1 with
+    | Some(Arrow(Var a, Var b)) when a = b -> assert true
+    | _ -> assert false
+
+let term_1 = Abs (0, Var 1)
+let () = match infer_type term_1 with
+    | Some (Arrow (Var a, Var b)) when a != b -> assert true
+    | _ -> assert false
+
+let term_1 = Abs (0, App(Constant 0, Var 0))
+let type_1 = Arrow (Atom 0, Atom 1)
+let term_2 = Abs (1, App(term_1, Var 1))
+let term_3 = Abs (2, App(term_2, Var 2))
+let () = assert (infer_term_type term_3 constant_type_abs = Some (type_1))
+
+
+(*don't have an idea for other interesting small tests for lambda abstractions*)
+
+(*applications*)
+let term_1 = App (Constant 1, Constant 0)
+let type_1 = Atom 2
+let () = assert (infer_term_type term_1 constant_type_abs = Some(type_1))
+
+let term_1 = App (Constant 0, Constant 0)
+let () = assert (infer_term_type term_1 constant_type_abs = None)
+
+(*similarly don't have more ideas right now for other interesting tests*)
