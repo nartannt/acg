@@ -148,3 +148,7 @@ let term_1 = App (Constant 0, Constant 0)
 let () = assert (infer_term_type term_1 constant_type_abs = None)
 
 (*similarly don't have more ideas right now for other interesting tests*)
+(*bigger tests would be nice*)
+
+
+

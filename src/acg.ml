@@ -178,25 +178,4 @@ let infer_term_type (term: 'a lambda_term) (constant_type: 'a  -> 'a linear_impl
         | None -> None
 
   (*check that the given lambda term can be typed with the target type*)
-let rec type_check term target_type constant_type (context: int -> 'a linear_implicative_type) = match term with
-    | Constant c -> target_type = constant_type c
-    | Var var_id ->
-        begin
-        match context var_id with
-            | Var _ -> true
-            | _ -> target_type = context var_id
-        end
-    | Abs (var_id, sub_term) ->
-            (match target_type with
-                | Arrow (left_type, right_type) -> type_check sub_term right_type constant_type (fun x -> if x = var_id then left_type else context x)
-                | _ -> false)
-    | App (left_term, right_term) ->
-            let right_type_opt = infer_term_type right_term constant_type in
-            let left_type_opt = infer_term_type left_term constant_type in
-            begin
-            match left_type_opt, right_type_opt with
-                | Some (Arrow (arg_type, res_type)), Some(right_type) ->
-                        let _, compatible = extract_eq arg_type right_type in
-                        compatible && target_type = res_type
-                | _ -> false
-            end
+let type_check term test_type constant_type = infer_term_type term constant_type = Some(test_type)
