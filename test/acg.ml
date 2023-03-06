@@ -147,6 +147,17 @@ let () = assert (infer_term_type term_1 constant_type_abs = Some(type_1))
 let term_1 = App (Constant 0, Constant 0)
 let () = assert (infer_term_type term_1 constant_type_abs = None)
 
+let constant_abs_test n = match n with
+    | 2 -> Arrow (Atom 1, Arrow (Atom 1, Atom 1515))
+    | n -> Atom n
+
+let non_lin_term = App(Abs(0, App (App(Constant 2, Var 0), Var 0)), Constant 1)
+let () = assert (infer_term_type non_lin_term constant_abs_test = Some(Atom 1515))
+
+
+let non_lin_term_2 = App(Abs(0, App (App(Constant 2, Var 0), Var 0)), Var 1)
+let () = assert (infer_term_type non_lin_term_2 constant_abs_test = Some(Atom 1515))
+
 (*similarly don't have more ideas right now for other interesting tests*)
 (*bigger tests would be nice*)
 
