@@ -54,7 +54,7 @@ let linear_lambda_term lambda_term =
   in
   fst (linear_check lambda_term [])
 
-(*substitutes the var in the given term byt the substitute term
+(*substitutes the var in the given term by the substitute term
  * will only substitute if the variable is free in the term, otherwise, returns the same term*)
 let rec substitute_var term var_id substitute_term =
   match term with
@@ -69,7 +69,7 @@ let rec substitute_var term var_id substitute_term =
   | Abs (id, sub_term) ->
       Abs (id, substitute_var sub_term var_id substitute_term)
 
-(*given a linear lambda term, returns a normalised form of that term, since it's linear reduction strategy doesn't matter*)
+(*given a linear lambda term, returns a normalised form of that term, since it's linear reduction strategy doesn't matter, i think*)
 let rec normalised_term = function
   | Constant c -> Constant c
   | Var var_id -> Var var_id
@@ -85,21 +85,38 @@ let rec normalised_term = function
           let normalised_right_term = normalised_term right_term in
           App (normalised_left_term, normalised_right_term))
 
-  (*find the most general type for a given lambda term and give the appropriate type equations*)
+  (* find the most general type for a given lambda term and give the appropriate type equations*)
   (* type_eq will contain pairs that represent equality constraints on types*)
-let rec infer_type_eq (term: 'a lambda_term) type_eq (constant_type: 'a -> 'a linear_implicative_type) = match term with
-    | Constant c -> constant_type c, type_eq
-    | Var var_id -> Var var_id, type_eq (*pretty useful to be able to associate a variable and its type variable easily, doesn't seem very clean though*)
+  (* the returned type corresponds to that of the given term, it is as generic as possible, the equations add further constraints*)
+  (* can detect some typing errors, will return none then *)
+let rec infer_type_eq (term: 'a lambda_term) (constant_type: 'a -> 'a linear_implicative_type) = match term with
+    | Constant c -> Some (constant_type c, [])
+    (* quick way to associate a variable and its type variable easily, unsure it's the best way to do this*)
+    (* note that the returned Var var_id is a type variable and is the type associated with the term Var var_id*)
+    | Var var_id -> Some (Var var_id, [])
     | Abs (var_id, sub_term) -> 
-            let type_res, new_type_eq = infer_type_eq sub_term type_eq constant_type in
-            Arrow(Var var_id, type_res), new_type_eq
+            begin
+            match infer_type_eq sub_term constant_type with
+            | None -> None
+            | Some (type_res, new_type_eq) ->
+                Some (Arrow(Var var_id, type_res), new_type_eq)
+            end
     | App (left_term, right_term) -> 
-            let right_type, right_type_eq = infer_type_eq right_term type_eq constant_type in
-            let left_type, left_type_eq = infer_type_eq left_term type_eq constant_type in
-            match left_type with
-                (*this handling of type_eq is egregioulsy inefficient but right now i only want something correct*)
-                | Arrow (arg_type, res_type) -> res_type, (arg_type, right_type)::right_type_eq@left_type_eq@type_eq
-                | _ -> failwith "The term is not well formed my friend"
+            begin
+            match infer_type_eq right_term constant_type with
+            | None -> None
+            | Some (right_type, right_type_eq) ->
+                begin
+                match infer_type_eq left_term constant_type with
+                | None -> None
+                | Some (left_type, left_type_eq) -> 
+                    begin
+                    match left_type with
+                        | Arrow (arg_type, res_type) -> Some(res_type, (arg_type, right_type)::right_type_eq@left_type_eq)
+                        | _ -> None
+                    end
+                end
+            end
 
 (*given a type and a substitution, will return the type with the appropriate substitutions having taken place*)
 let rec substitute_in_type type_to_change type_to_replace replacement_type =
@@ -115,8 +132,10 @@ let rec substitute_in_type type_to_change type_to_replace replacement_type =
                     Arrow (new_left_type, new_right_type)
 
 
-(*given a list of type equations and a substitution, will substitute the approriate terms in the equations*)
-let simplify_eq type_eq type_to_replace replacement_type = List.map (fun (a, b) -> ((substitute_in_type a type_to_replace replacement_type), (substitute_in_type b type_to_replace replacement_type))) type_eq
+(*given a list of type equations and a substitution, will substitute the approriate terms in all the equations*)
+let simplify_eq type_eq type_to_replace replacement_type =
+    List.map (fun (a, b) ->
+        ((substitute_in_type a type_to_replace replacement_type), (substitute_in_type b type_to_replace replacement_type))) type_eq
 
 (*given a type variable will check whether it appears free in anothe type, that is whether it appears at all for us*)
 let rec free_in type_var_id type_to_check = match type_to_check with
@@ -132,11 +151,11 @@ let rec add_substitution substitution type_to_change new_type = match substituti
             let new_replacement = substitute_in_type replacement type_to_change new_type in
             (new_to_change, new_replacement)::(add_substitution t type_to_change new_type)
 
-            (*when given an equation between two types, will extract all equations that can be extracted*)
+    (*when given a type equation, will return all type equation that can be deduced*)
 let rec extract_eq (type_1: 'a linear_implicative_type) (type_2: 'a linear_implicative_type) = match type_1, type_2 with
     | Atom a, Atom b when a = b -> [], true
     | Atom a, Atom b when a != b -> [], false
-    (*not necessary but needed for compiler, could replace the one above, probably should*)
+    (*not necessary but needed for compiler*)
     | Atom _, Atom _ -> [], false
     | Var var_id, type_term -> [(((Var var_id):'a linear_implicative_type), type_term)], true
     | type_term, Var var_id -> [(Var var_id, type_term)], true
@@ -171,11 +190,15 @@ let rec unify_eq (type_eq: ('a linear_implicative_type * 'a linear_implicative_t
             else None
 
 let infer_term_type (term: 'a lambda_term) (constant_type: 'a  -> 'a linear_implicative_type) =
-    let tmp_type, type_eq = infer_type_eq term [] constant_type in
-    let substitutions_opt = unify_eq type_eq [] in
-    match substitutions_opt with
-        | Some substitutions -> Some (List.fold_left (fun type_to_change (type_to_replace, replacement_type) -> substitute_in_type type_to_change type_to_replace replacement_type ) tmp_type substitutions)
-        | None -> None
-
+    begin
+    match infer_type_eq term constant_type with
+    | None -> None
+    | Some (tmp_type, type_eq) ->
+        begin
+        match unify_eq type_eq [] with
+            | Some substitutions -> Some (List.fold_left (fun type_to_change (type_to_replace, replacement_type) -> substitute_in_type type_to_change type_to_replace replacement_type ) tmp_type substitutions)
+            | None -> None
+        end
+    end
   (*check that the given lambda term can be typed with the target type*)
 let type_check term test_type constant_type = infer_term_type term constant_type = Some(test_type)
