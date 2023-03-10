@@ -5,13 +5,6 @@ type 'a linear_implicative_type =
   | Var of int
     
 
-(*vocabulary or higher order signature*)
-type ('a, 'c) vocabulary = {
-  atomic_types : 'a;
-  constant : 'c;
-  typing_fun : 'c -> 'a linear_implicative_type;
-}
-
 (*first draft as stand in for a simply typed linear lambda calculus*)
 (*using string as variables names poses lots of problems that will be ignored for as long as possible*)
 (*could it be possible to enforce linearity of the lambda terms by construction ? possibly, probably not*)
@@ -21,19 +14,6 @@ type 'c lambda_term =
   | Var of int
   | Abs of int * 'c lambda_term
 
-(*lexicon between two vocabularies*)
-type ('a, 'c, 'b, 'd) lexicon = {
-  type_translate : 'a -> 'b linear_implicative_type;
-  lambda_translate : 'c -> 'd lambda_term;
-}
-
-(*abstract categorial grammar*)
-type ('a, 'c, 'b, 'd) acg = {
-  abstract_voc : ('a, 'c) vocabulary;
-  object_voc : ('b, 'd) vocabulary;
-  lexicon : ('a, 'c, 'b, 'd) lexicon;
-  s : 'a;
-}
 
 (*this function checks whether a given well formed lambda term is linear or not*)
 let linear_lambda_term lambda_term =
@@ -193,6 +173,7 @@ let rec unify_eq (type_eq: ('a linear_implicative_type * 'a linear_implicative_t
                 unify_eq (eq_res@t) substitution
             else None
 
+            (*given a linear lambda term (should work with any lambda terms) returns the most general type that can be infered, if it cannot be typed then None is returned*)
 let infer_term_type (term: 'a lambda_term) (constant_type: 'a  -> 'a linear_implicative_type) =
     begin
     match infer_type_eq term constant_type with
@@ -204,5 +185,19 @@ let infer_term_type (term: 'a lambda_term) (constant_type: 'a  -> 'a linear_impl
             | None -> None
         end
     end
+
+    (*checks that the given types can be unified *)
+let types_compatible type_1 type_2 =
+    let type_eq, reducible_candidate = extract_eq type_1 type_2 in
+    if reducible_candidate then
+        match unify_eq type_eq [] with
+            | Some _ -> true
+            | None -> false
+    else
+        false
+
   (*check that the given lambda term can be typed with the target type*)
-let type_check term test_type constant_type = infer_term_type term constant_type = Some(test_type)
+let type_check term test_type constant_type = 
+    match infer_term_type term constant_type with
+        | Some(infered_type) -> types_compatible infered_type test_type
+        | None -> false

@@ -161,5 +161,8 @@ let () = assert (infer_term_type non_lin_term_2 constant_abs_test = Some(Atom 15
 (*similarly don't have more ideas right now for other interesting tests*)
 (*bigger tests would be nice*)
 
-
+(*tests type check to allow lambda terms to be typed with more general types*)
+let test_term = Constant 1
+let constant_type = fun n -> Atom n
+let () = assert (type_check test_term (Var 0) constant_type = true)
 
