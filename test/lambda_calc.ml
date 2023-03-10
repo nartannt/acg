@@ -1,4 +1,4 @@
-open Acg
+open Lambda_calc
 
 (*tests for linear_lambda_term, which tests whether a well formed lambda term is linear *)
 (*for constants*)
@@ -70,8 +70,6 @@ let () =
     = normalised_term (App (redex_term, double_redex_term)))
 
 
-(*big section for testing some of the functions used in the unification algorithm*)
-
 (*testing substitute_in_type*)
 let type_1 = Arrow(Var 1, Atom 0)
 let type_2 = Atom 1
@@ -87,15 +85,13 @@ let () = assert (Arrow (type_2, type_2) = substitute_in_type type_1 (Var 1) type
 
 let type_1 = Arrow(Var 1, Var 1)
 let type_2 = Arrow (Atom 0, Var 1)
+
 (*this test should work no matter what type_1 and type_2 are*)
 let () = assert (type_2 = substitute_in_type type_1 type_1 type_2)
-
-(*wasn't very thourough with these tests but it will do for now*)
 
 
 (*tests for infer_term_type*)
 let constant_type n = Atom n
-
 let infer_type (term: 'a lambda_term) = infer_term_type term constant_type
 
 (*constants*)
@@ -154,12 +150,9 @@ let constant_abs_test n = match n with
 let non_lin_term = App(Abs(0, App (App(Constant 2, Var 0), Var 0)), Constant 1)
 let () = assert (infer_term_type non_lin_term constant_abs_test = Some(Atom 1515))
 
-
 let non_lin_term_2 = App(Abs(0, App (App(Constant 2, Var 0), Var 0)), Var 1)
 let () = assert (infer_term_type non_lin_term_2 constant_abs_test = Some(Atom 1515))
 
-(*similarly don't have more ideas right now for other interesting tests*)
-(*bigger tests would be nice*)
 
 (*tests type check to allow lambda terms to be typed with more general types*)
 let test_term = Constant 1

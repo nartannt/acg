@@ -1,6 +1,6 @@
 let () = print_endline "Hello, World!"
 
-open Acg
+open Lambda_calc
 
 let () =
   let test = Atom "test" in

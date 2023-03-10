@@ -1,10 +1,10 @@
 (library
- (public_name acg)
- (name acg)
- (modules acg))
+ (public_name acg.lambda_calc)
+ (name lambda_calc)
+ (modules lambda_calc))
 
 (executable
  (public_name main)
  (name main)
- (libraries acg)
+ (libraries lambda_calc)
  (modules main))
