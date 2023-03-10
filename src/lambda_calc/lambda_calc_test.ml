@@ -159,3 +159,4 @@ let test_term = Constant 1
 let constant_type = fun n -> Atom n
 let () = assert (type_check test_term (Var 0) constant_type = true)
 
+let () = assert false
