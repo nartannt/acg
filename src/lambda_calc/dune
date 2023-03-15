@@ -1,5 +1,11 @@
+
 (library
- (public_name acg.lambda_calc)
- (name lambda_calc)
- (modules lambda_calc))
+ (public_name acg.lambda_calc_private)
+ (name lambda_calc_module)
+ (modules lambda_calc_module))
+
+(tests
+ (names test_lambda_calc)
+ (modules test_lambda_calc)
+ (libraries acg.lambda_calc_private))
 

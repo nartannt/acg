@@ -1,4 +1,4 @@
-open Lambda_calc
+open Lambda_calc_module
 
 (*tests for linear_lambda_term, which tests whether a well formed lambda term is linear *)
 (*for constants*)
@@ -159,4 +159,3 @@ let test_term = Constant 1
 let constant_type = fun n -> Atom n
 let () = assert (type_check test_term (Var 0) constant_type = true)
 
-let () = assert false
