@@ -69,7 +69,7 @@ let rec normalised_term = function
   (* type_eq will contain pairs that represent equality constraints on types*)
   (* the returned type corresponds to that of the given term, it is as generic as possible, the equations add further constraints*)
   (* can detect some typing errors, will return none then *)
-let rec infer_type_eq (term: 'a lambda_term) (constant_type: 'a -> 'a linear_implicative_type) = match term with
+let rec infer_type_eq (term: 'a lambda_term) (constant_type: 'a -> 'b linear_implicative_type) = match term with
     | Constant c -> Some (constant_type c, [])
     (* quick way to associate a variable and its type variable easily, unsure it's the best way to do this*)
     (* note that the returned Var var_id is a type variable and is the type associated with the term Var var_id*)
@@ -174,7 +174,7 @@ let rec unify_eq (type_eq: ('a linear_implicative_type * 'a linear_implicative_t
             else None
 
             (*given a linear lambda term (should work with any lambda terms) returns the most general type that can be infered, if it cannot be typed then None is returned*)
-let infer_term_type (term: 'a lambda_term) (constant_type: 'a  -> 'a linear_implicative_type) =
+let infer_term_type (term: 'a lambda_term) (constant_type: 'a  -> 'b linear_implicative_type) =
     begin
     match infer_type_eq term constant_type with
     | None -> None
