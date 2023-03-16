@@ -11,7 +11,9 @@ type 'c lambda_term =
 
 val normalised_term: 'a lambda_term -> 'a lambda_term
 val linear_lambda_term: 'a lambda_term -> bool
+val alpha_eq: 'a lambda_term -> 'a lambda_term -> bool
 
 val infer_term_type: 'a lambda_term -> ('a -> 'a linear_implicative_type) -> ('a linear_implicative_type) option
 val types_compatible: 'a linear_implicative_type -> 'a linear_implicative_type -> bool
 val type_check: 'a lambda_term -> 'a linear_implicative_type -> ('a -> 'a linear_implicative_type) -> bool
+

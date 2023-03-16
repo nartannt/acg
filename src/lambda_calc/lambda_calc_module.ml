@@ -1,3 +1,7 @@
+(* TODO go through code rename, comment and document*)
+(* TODO check that comparisons of lambda terms checks for alpha-equivalence*)
+(* TODO when assuming that a lambda term is linear, use predicat assert at beginning of function*)
+
 (*linear implicative types*)
 type 'a linear_implicative_type =
   | Atom of 'a
@@ -13,6 +17,20 @@ type 'c lambda_term =
   | App of ('c lambda_term * 'c lambda_term)
   | Var of int
   | Abs of int * 'c lambda_term
+
+(*returns true if and only if the terms are alpha equivalent*)
+let alpha_eq term_1 term_2 = 
+    let rec lambda_compare t1 t2 abs_var_rec = 
+        begin
+        match t1, t2 with
+        | Constant c1, Constant c2 -> c1 = c2
+        | Var var_id_1, Var var_id_2 -> var_id_1 = abs_var_rec var_id_2
+        | App (left_1, right_1), App (left_2, right_2) -> (lambda_compare left_1 left_2 abs_var_rec) && (lambda_compare right_1 right_2 abs_var_rec)
+        (*i'm not sure that a function is the best way to do this, most likely not*)
+        | Abs (var_id_1, sub_term_1), Abs(var_id_2, sub_term_2) -> lambda_compare sub_term_1 sub_term_2 (fun x -> if x = var_id_2 then var_id_1 else abs_var_rec x)
+        | _ -> false
+        end
+    in lambda_compare term_1 term_2 (fun _ -> -1)
 
 
 (*this function checks whether a given well formed lambda term is linear or not*)
@@ -34,14 +52,14 @@ let linear_lambda_term lambda_term =
   in
   fst (linear_check lambda_term [])
 
+
 (*substitutes all occurences of a var in the given term by the substitute term
  * will only substitute if the variable is free in the term, otherwise, returns the same term*)
 let rec substitute_var term var_id new_term =
   match term with
   | Constant c -> Constant c
   | App (t_left, t_right) ->
-      App
-        ( substitute_var t_left var_id new_term,
+      App(substitute_var t_left var_id new_term,
           substitute_var t_right var_id new_term)
   | Var id when var_id = id -> new_term
   | Var id -> Var id

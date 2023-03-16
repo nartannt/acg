@@ -157,5 +157,15 @@ let () = assert (infer_term_type non_lin_term_2 constant_abs_test = Some(Atom 15
 (*tests type check to allow lambda terms to be typed with more general types*)
 let test_term = Constant 1
 let constant_type = fun n -> Atom n
-let () = assert (type_check test_term (Var 0) constant_type = true)
+let () = assert (type_check test_term (Var 0) constant_type)
 
+(*alpha equivalence*)
+let term_1 = App (Constant 1, Constant 0)
+let () = assert (alpha_eq term_1 term_1)
+let term_1 = Abs (0, App(Constant 0, Var 0))
+let term_2 = Abs (1, App(Constant 0, Var 1))
+let () = assert (alpha_eq term_1 term_1)
+let () = assert (alpha_eq term_2 term_1)
+let term_1 = App(Constant 0, Var 0)
+let term_2 = App(Constant 0, Var 1)
+let () = assert (not (alpha_eq term_1 term_2))
