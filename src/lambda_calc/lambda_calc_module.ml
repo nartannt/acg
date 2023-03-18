@@ -214,6 +214,7 @@ let types_compatible type_1 type_2 =
     else
         false
 
+
   (*check that the given lambda term can be typed with the target type*)
 let type_check term test_type constant_type = 
     match infer_term_type term constant_type with

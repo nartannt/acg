@@ -159,6 +159,11 @@ let test_term = Constant 1
 let constant_type = fun n -> Atom n
 let () = assert (type_check test_term (Var 0) constant_type)
 
+let (test_type: string linear_implicative_type) = Atom "ay"
+let (test_term: int lambda_term) = Constant 1
+let dummy_type_fun = fun n -> if n = 0 then Atom "ay" else Atom "ay"
+let () = assert (type_check test_term test_type dummy_type_fun)
+
 (*alpha equivalence*)
 let term_1 = App (Constant 1, Constant 0)
 let () = assert (alpha_eq term_1 term_1)

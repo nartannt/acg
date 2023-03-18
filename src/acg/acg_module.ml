@@ -5,20 +5,20 @@ open Lambda_calc
 (*can you believe this was published the same year i was born*)
 (*will add references and all that other stuff when i can be bothered or when the project will start taking proper form*)
 
-type ('a, 'c) vocabulary = {
+type ('a, 'b) vocabulary = {
     type_constants: 'a list;
-    lambda_constants: 'c list;
+    lambda_constants: 'b list;
     (*this list represents a function from the constants of type 'c to 'a types*)
-    constant_typing_list: ('c * 'a linear_implicative_type) list}
+    constant_typing_list: ('b * 'a linear_implicative_type) list}
 
-(*given a list of pairs will return a function from the *)
+(*given a list of pairs will return a function*)
 let rec list_to_fun (l: ('a * 'b) list) (elem: 'a) = match l with
     (*i don't like this solution for the fail case but implementing an option would 
      * prevent this function from being used as the constant typing function
      * we could rewrite some of the lambda_calc module but it would feel clunky to have to handle
      * the options everywhere*)
     | [] -> failwith "the given element is not part the input's list domain"
-    | (h, res)::_ when h = elem -> res
+    | (h, res)::_ when elem  = h-> res
     | _::t -> list_to_fun t elem
 
 (*might not be the best name*)
@@ -37,12 +37,12 @@ let rec homomorphic_extension_types (f: 'a -> 'b linear_implicative_type) = func
     | Arrow (left_type, right_type) -> Arrow(homomorphic_extension_types f left_type, homomorphic_extension_types f right_type)
 
 type ('a, 'b, 'c, 'd) lexicon = {
-    type_translate_list: ('a * 'b linear_implicative_type) list;
-    term_translate_list: ('c * 'd lambda_term) list}
+    type_translate_list: ('a * 'c linear_implicative_type) list;
+    term_translate_list: ('b * 'd lambda_term) list}
 
 type ('a, 'b, 'c, 'd) abstract_categorial_grammar = {
-    abstract_vocabulary: ('a, 'c) vocabulary;
-    object_vocabulary: ('b, 'd) vocabulary;
+    abstract_vocabulary: ('a, 'b) vocabulary;
+    object_vocabulary: ('c, 'd) vocabulary;
     lexicon: ('a, 'b, 'c, 'd) lexicon;
     distinguished_type: 'a linear_implicative_type}
 
@@ -56,7 +56,7 @@ let in_abstract_lang term acg =
 let rec list_antecedents (element: 'b lambda_term) (list_fun: ('a * 'b lambda_term) list) = match list_fun with
     | [] -> []
     | (a, b)::t when alpha_eq b element -> (Constant a)::(list_antecedents element t)
-    | (_, _)::t -> list_antecedents element t
+    | (_, _)::t -> list_antecedents element t 
 
 
     (*will give all possible applications that could have been derived from two lists of antecedents*)
@@ -75,9 +75,9 @@ let rec generate_pairs list_left list_right = match list_left, list_right with
 
 (*this function is making me uneasy, because proving it to be correct would probably be a nightmare
   this implies the function is probably wrong, additionally this is a worse case scenario doubly exponential function*)
-let rec match_object_term object_term term_translate_list =
+let rec match_object_term (object_term: 'd lambda_term) (term_translate_list: ('b * 'd lambda_term) list) =
     (*base case, the term is part of the domain*)
-    let antecedents = list_antecedents object_term term_translate_list in
+    let (antecedents: ('b lambda_term) list) = list_antecedents object_term term_translate_list in
     match object_term with
         | Constant _ -> antecedents
         | Var var_id -> [Var var_id] (*this step is important as it allows us to reconstruct the antecedent abstractions correctly*)
@@ -93,11 +93,13 @@ let rec match_object_term object_term term_translate_list =
                 (*cause of double exponentialyness*)
                 generate_pairs antecedents_left antecedents_right
 
+
 (*putting everything together*)
-let in_object_lang term acg =
+let in_object_lang (term: 'd lambda_term) (acg: ('a, 'b, 'c, 'd) abstract_categorial_grammar) =
     let s = acg.distinguished_type in
     let antecedents = match_object_term term acg.lexicon.term_translate_list in
     let g = homomorphic_extension_lamba (list_to_fun acg.lexicon.term_translate_list) in
     (*because i do not trust match_object_term*)
     let _ = List.map (fun antecedent -> assert (g antecedent = term)) antecedents in
-    List.exists (fun term_antecedent -> type_check term_antecedent s (list_to_fun acg.abstract_vocabulary.constant_typing_list)) antecedents
+    let (constant_type_fun: 'b -> 'a linear_implicative_type) = list_to_fun acg.abstract_vocabulary.constant_typing_list in
+    List.exists (fun _term_antecedent -> (type_check _term_antecedent s constant_type_fun)) antecedents
