@@ -1,56 +1,36 @@
 open Lambda_calc_module
 
-(*tests for linear_lambda_term, which tests whether a well formed lambda term is linear *)
-(*for constants*)
-let constant_term = Constant ""
-let () = assert (linear_lambda_term constant_term = true)
-
-(*single variables*)
-let var_term = Var 0
-let () = assert (linear_lambda_term var_term = true)
-
-(*applications*)
-let app_term_ok = App (constant_term, var_term)
-let () = assert (linear_lambda_term app_term_ok = true)
-let app_term_err = App (var_term, var_term)
-let () = assert (linear_lambda_term app_term_err = false)
-let var_term_2 = Var 1
-let app_term_ok_2 = App (var_term_2, var_term)
-let () = assert (linear_lambda_term app_term_ok_2 = true)
-
-(*lambda abstractions*)
-let abs_term_ok = Abs (0, app_term_ok)
-let () = assert (linear_lambda_term abs_term_ok = true)
-let abs_term_ok_2 = Abs (0, app_term_ok_2)
-let () = assert (linear_lambda_term abs_term_ok_2 = true)
-let abs_term_err = Abs (0, app_term_err)
-let () = assert (linear_lambda_term abs_term_err = false)
-
 (*tests for substitute var, which substitutes a variable in a lambda term by another term*)
-(*constants*)
+let constant_term_1 = Constant "peepee poopoo"
 let constant_term_2 = Constant "le pipi est stocké dans les couilles"
-let () = assert (constant_term = substitute_var constant_term 0 constant_term_2)
 
-(*variables*)
-let () = assert (constant_term_2 = substitute_var var_term 0 constant_term_2)
-let () = assert (Var 1 = substitute_var var_term_2 0 constant_term_2)
-let () = assert (constant_term_2 = substitute_var var_term_2 1 constant_term_2)
+let var_term_1 = App (constant_term_1, BVar 2)
+let var_term_2 = BVar 3
+let app_term_1 = App(constant_term_1, constant_term_2)
 
-(*applications*)
-let () = assert (app_term_ok = substitute_var app_term_ok 1 constant_term_2)
-let () = assert (app_term_ok = substitute_var app_term_ok_2 1 constant_term)
+let abs_term_1 = Abs(BVar 2)
+let abs_term_2 = Abs(BVar 1)
+let abs_term_3 = Abs(constant_term_2)
+
+(*constants and free variables*)
+let () = assert (constant_term_1 = substitute_bounded_var constant_term_1 1515  constant_term_2)
+
+(*variables and applications*)
+let () = assert (app_term_1 = substitute_bounded_var var_term_1 2 constant_term_2)
+let () = assert (var_term_1 = substitute_bounded_var var_term_1 1 constant_term_2)
+let () = assert (constant_term_2 = substitute_bounded_var var_term_2 3 constant_term_2)
 
 (*abstraction*)
-let () = assert (abs_term_ok = substitute_var abs_term_ok 1 constant_term_2)
-let () = assert (abs_term_ok = substitute_var abs_term_ok 0 constant_term_2)
+let () = assert (abs_term_2 = substitute_bounded_var abs_term_2 1 constant_term_2)
+let () = assert (abs_term_2 = substitute_bounded_var abs_term_2 2 constant_term_2)
 
-let () =
-  assert (
-    Abs (0, App (constant_term_2, Var 0))
-    = substitute_var abs_term_ok_2 1 constant_term_2)
+let () = assert (abs_term_3 = substitute_bounded_var abs_term_1 1 constant_term_2)
+
+
+(*would be nice if we had more tests, and bigger tests, will add if bugs are found*)
 
 (*tests for normalisation of lambda terms*)
-(*lambda terms that are already normalised*)
+(*lambda terms that are already normalised*)(*
 let () = assert (constant_term = normalised_term constant_term)
 let () = assert (var_term = normalised_term var_term)
 let () = assert (app_term_ok = normalised_term app_term_ok)
@@ -68,7 +48,7 @@ let () =
   assert (
     App (constant_app, App (constant_term, constant_app))
     = normalised_term (App (redex_term, double_redex_term)))
-
+*)
 
 (*testing substitute_in_type*)
 let type_1 = Arrow(Var 1, Atom 0)
@@ -100,7 +80,7 @@ let type_1 = Atom 0
 let () = assert (infer_type term_1 = Some(type_1))
 
 (*variables*)
-let term_1 = Var 1515
+let term_1 = FVar "1515"
 let type_res = infer_type term_1
 let () =
     match type_res with
@@ -112,24 +92,27 @@ let constant_type_abs n = match n with
     | 0 -> Arrow (Atom 0, Atom 1)
     | 1 -> Arrow (Arrow (Atom 0, Atom 1), Atom 2)
     | _ -> Atom n
-let term_1 = Abs (0, App(Constant 0, Var 0))
+let term_1 = Abs (App(Constant 0, BVar 0))
 let type_1 = Arrow (Atom 0, Atom 1)
-let () = assert (infer_term_type term_1 constant_type_abs= Some(type_1))
 
-let term_1 = Abs (0, Var 0)
+                
+let () = assert (infer_term_type term_1 constant_type_abs = Some(type_1))
+
+let term_1 = Abs (BVar 0)
 let () = match infer_type term_1 with
     | Some(Arrow(Var a, Var b)) when a = b -> assert true
     | _ -> assert false
 
-let term_1 = Abs (0, Var 1)
+let term_1 = Abs (BVar 1)
 let () = match infer_type term_1 with
     | Some (Arrow (Var a, Var b)) when a != b -> assert true
     | _ -> assert false
 
-let term_1 = Abs (0, App(Constant 0, Var 0))
+let term_1 = Abs (App(Constant 0, BVar 0)) (*Atom 0 -> Atom 1*)
 let type_1 = Arrow (Atom 0, Atom 1)
-let term_2 = Abs (1, App(term_1, Var 1))
-let term_3 = Abs (2, App(term_2, Var 2))
+let term_2 = Abs ( App(term_1, BVar 0)) (* Atom 0 -> Atom 1 *) 
+let term_3 = Abs ( App(term_2, BVar 0)) (* Atom 0 -> Atom 1 *)
+
 let () = assert (infer_term_type term_3 constant_type_abs = Some (type_1))
 
 
@@ -147,13 +130,13 @@ let constant_abs_test n = match n with
     | 2 -> Arrow (Atom 1, Arrow (Atom 1, Atom 1515))
     | n -> Atom n
 
-let non_lin_term = App(Abs(0, App (App(Constant 2, Var 0), Var 0)), Constant 1)
+let non_lin_term = App(Abs( App (App(Constant 2, BVar 0), BVar 0)), Constant 1)
 let () = assert (infer_term_type non_lin_term constant_abs_test = Some(Atom 1515))
 
-let non_lin_term_2 = App(Abs(0, App (App(Constant 2, Var 0), Var 0)), Var 1)
+let non_lin_term_2 = App(Abs(App (App(Constant 2, BVar 0), BVar 0)), BVar 2)
 let () = assert (infer_term_type non_lin_term_2 constant_abs_test = Some(Atom 1515))
 
-
+(*
 (*tests type check to allow lambda terms to be typed with more general types*)
 let test_term = Constant 1
 let constant_type = fun n -> Atom n
@@ -162,15 +145,5 @@ let () = assert (type_check test_term (Var 0) constant_type)
 let (test_type: string linear_implicative_type) = Atom "ay"
 let (test_term: int lambda_term) = Constant 1
 let dummy_type_fun = fun n -> if n = 0 then Atom "ay" else Atom "ay"
-let () = assert (type_check test_term test_type dummy_type_fun)
+let () = assert (type_check test_term test_type dummy_type_fun()*)
 
-(*alpha equivalence*)
-let term_1 = App (Constant 1, Constant 0)
-let () = assert (alpha_eq term_1 term_1)
-let term_1 = Abs (0, App(Constant 0, Var 0))
-let term_2 = Abs (1, App(Constant 0, Var 1))
-let () = assert (alpha_eq term_1 term_1)
-let () = assert (alpha_eq term_2 term_1)
-let term_1 = App(Constant 0, Var 0)
-let term_2 = App(Constant 0, Var 1)
-let () = assert (not (alpha_eq term_1 term_2))

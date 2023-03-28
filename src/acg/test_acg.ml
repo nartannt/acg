@@ -1,4 +1,4 @@
-include Acg_module
+(*include Acg_module
 include Lambda_calc
 (*using the examples from the 2001 OC for tests*)
 
@@ -57,4 +57,4 @@ let _voc_2 = {
         (S_dicto, Abs(0,Abs(1,App(App(App(Constant Concat,App(Constant Concat,Var 0)),Constant (String "seeks")), Var 1))))
     ]}
 
-let () = assert (List.mem (Constant J) (match_object_term (Constant (String "John")) lexicon.term_translate_list ))*)
+let () = assert (List.mem (Constant J) (match_object_term (Constant (String "John")) lexicon.term_translate_list ))*)*)

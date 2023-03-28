@@ -1,5 +1,5 @@
-open Lambda_calc
-
+(*open Lambda_calc*)
+(*
 
 (*this whole section is beat for beat a translation of the orignal 2001 paper by de Groote*)
 (*can you believe this was published the same year i was born*)
@@ -102,4 +102,4 @@ let in_object_lang (term: 'd lambda_term) (acg: ('a, 'b, 'c, 'd) abstract_catego
     (*because i do not trust match_object_term*)
     let _ = List.map (fun antecedent -> assert (g antecedent = term)) antecedents in
     let (constant_type_fun: 'b -> 'a linear_implicative_type) = list_to_fun acg.abstract_vocabulary.constant_typing_list in
-    List.exists (fun _term_antecedent -> (type_check _term_antecedent s constant_type_fun)) antecedents
+    List.exists (fun _term_antecedent -> (type_check _term_antecedent s constant_type_fun)) antecedents*)

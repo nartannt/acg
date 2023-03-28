@@ -1,6 +1,8 @@
 (* TODO go through code rename, comment and document*)
 (* TODO check that comparisons of lambda terms checks for alpha-equivalence*)
 (* TODO when assuming that a lambda term is linear, use predicat assert at beginning of function*)
+(* TODO Rename Var to Var_type or something to that effect*)
+(* DOING use De Bruijn indexes *)
 
 (*linear implicative types*)
 type 'a linear_implicative_type =
@@ -9,63 +11,45 @@ type 'a linear_implicative_type =
   | Var of int
     
 
-(*first draft as stand in for a simply typed linear lambda calculus*)
-(*using string as variables names poses lots of problems that will be ignored for as long as possible*)
-(*could it be possible to enforce linearity of the lambda terms by construction ? possibly, probably not*)
+(* using De Bruijn indices for bounded variables (BVar) that are therefore represented by int
+ * using strings for free variables (FVar) will be using strings, seems most appropriate*)
 type 'c lambda_term =
   | Constant of 'c
   | App of ('c lambda_term * 'c lambda_term)
-  | Var of int
-  | Abs of int * 'c lambda_term
+  | Abs  of 'c lambda_term
+  | FVar of string
+  (* /!\ the De Bruijn indices will start at 0, lambda x. x will be written as lambda. 0*)
+  | BVar of int 
 
 (*returns true if and only if the terms are alpha equivalent*)
-let alpha_eq term_1 term_2 = 
-    let rec lambda_compare t1 t2 abs_var_rec = 
-        begin
-        match t1, t2 with
+(* i believe that a simple equality would work*)
+let rec alpha_eq term_1 term_2 =
+    match term_1, term_2 with
         | Constant c1, Constant c2 -> c1 = c2
-        | Var var_id_1, Var var_id_2 -> var_id_1 = abs_var_rec var_id_2
-        | App (left_1, right_1), App (left_2, right_2) -> (lambda_compare left_1 left_2 abs_var_rec) && (lambda_compare right_1 right_2 abs_var_rec)
-        (*i'm not sure that a function is the best way to do this, most likely not*)
-        | Abs (var_id_1, sub_term_1), Abs(var_id_2, sub_term_2) -> lambda_compare sub_term_1 sub_term_2 (fun x -> if x = var_id_2 then var_id_1 else abs_var_rec x)
+        | App(t1_left, t1_right), App(t2_left, t2_right) -> (alpha_eq t1_left t2_left) && (alpha_eq t1_right t2_right)
+        | Abs sub_term_1, Abs sub_term_2 -> alpha_eq sub_term_1 sub_term_2
+        | FVar var_name_1, FVar var_name_2 -> var_name_1 = var_name_2
+        | BVar var_id_1, BVar var_id_2 -> var_id_1 = var_id_2
         | _ -> false
-        end
-    in lambda_compare term_1 term_2 (fun _ -> -1)
 
-
-(*this function checks whether a given well formed lambda term is linear or not*)
-let linear_lambda_term lambda_term =
-  let rec linear_check term free_vars =
+(* given a lambda term, will replace all the variables bounded at a higher (given) level but free here by the new_term*)
+let rec substitute_bounded_var term var_level new_term =
+    (*this feels like it could be handled better*)
+    if var_level <= 0 then failwith "invalid argument var_level must be a positive integer"
+    else
     match term with
-    | Constant _ -> (true, free_vars)
-    (*should make special case to return false and end there if any returns false*)
-    | App (left, right) ->
-        let well_formed_left, free_vars_l = linear_check left free_vars in
-        let well_formed_right, free_vars_r = linear_check right free_vars_l in
-        (well_formed_left && well_formed_right, free_vars_r)
-    | Var var_id ->
-        if List.mem var_id free_vars then (false, [])
-        else (true, var_id :: free_vars)
-    | Abs (var_id, term) ->
-        let free_vars_abs = List.filter (fun x -> x != var_id) free_vars in
-        linear_check term free_vars_abs
-  in
-  fst (linear_check lambda_term [])
+    | Constant c -> Constant c
+    | App(t_left, t_right) ->
+        App(substitute_bounded_var t_left var_level new_term,
+            substitute_bounded_var t_right var_level new_term)
+    | FVar var_name -> FVar var_name
+    | BVar var_id when var_id = var_level -> new_term
+    | BVar var_id -> BVar var_id
+    | Abs (sub_term) -> Abs( substitute_bounded_var sub_term (var_level + 1) new_term)
 
 
-(*substitutes all occurences of a var in the given term by the substitute term
- * will only substitute if the variable is free in the term, otherwise, returns the same term*)
-let rec substitute_var term var_id new_term =
-  match term with
-  | Constant c -> Constant c
-  | App (t_left, t_right) ->
-      App(substitute_var t_left var_id new_term,
-          substitute_var t_right var_id new_term)
-  | Var id when var_id = id -> new_term
-  | Var id -> Var id
-  | Abs (id, sub_term) when id = var_id -> Abs (id, sub_term)
-  | Abs (id, sub_term) -> Abs (id, substitute_var sub_term var_id new_term)
 
+(*
 (*given a linear lambda term, returns a normalised form of that term, since it's linear reduction strategy doesn't matter, i think*)
 let rec normalised_term = function
   | Constant c -> Constant c
@@ -82,44 +66,82 @@ let rec normalised_term = function
           let normalised_left_term = normalised_term left_term in
           let normalised_right_term = normalised_term right_term in
           App (normalised_left_term, normalised_right_term))
+*)
+
+let rec print_type (li_type: int linear_implicative_type) = match li_type with
+    | Atom n -> print_string ("Atom(" ^ (string_of_int n) ^ ")")
+    | Arrow(ltype, rtype) -> print_type ltype; print_string " -> "; print_type rtype
+    | Var var_id -> print_string ("Var(" ^ string_of_int var_id ^ ")")
+
+
+(* given a variable id will return the associated variable name in the given list*)
+let rec retrieve_var_name var_id = function
+    | [] -> None
+    | (id, var_name)::_ when id = var_id -> Some var_name
+    | _::t -> retrieve_var_name var_id t
+
+    (*given a list of associations of bvars to variable ids will return the same list with all vars below a certain lambda depth removed*)
+let rec remove_bvars_cutoff cutoff_depth = function
+    | [] -> []
+    | (depth, _)::t when depth > cutoff_depth -> remove_bvars_cutoff cutoff_depth t
+    | h::t -> h::(remove_bvars_cutoff cutoff_depth t)
 
   (* find the most general type for a given lambda term and give the appropriate type equations*)
   (* type_eq will contain pairs that represent equality constraints on types*)
-  (* the returned type corresponds to that of the given term, it is as generic as possible, the equations add further constraints*)
+  (* the lambda_depth is for the bounded variables and represents how deep we are in the term abstratction-wise*)
   (* can detect some typing errors, will return none then *)
-let rec infer_type_eq (term: 'a lambda_term) (constant_type: 'a -> 'b linear_implicative_type) = match term with
-    | Constant c -> Some (constant_type c, [])
-    (* quick way to associate a variable and its type variable easily, unsure it's the best way to do this*)
-    (* note that the returned Var var_id is a type variable and is the type associated with the term Var var_id*)
-    (* the nice thing with this approach is that it guarantees that all instances of a variable will have the same type*)
-    | Var var_id -> Some (Var var_id, [])
-    | Abs (var_id, sub_term) -> 
-            begin
-            match infer_type_eq sub_term constant_type with
-            | None -> None
-            | Some (type_res, new_type_eq) ->
-                Some (Arrow(Var var_id, type_res), new_type_eq)
-            end
-    | App (left_term, right_term) -> 
-            begin
-            match infer_type_eq right_term constant_type with
-            | None -> None
-            | Some (right_type, right_type_eq) ->
-                begin
-                match infer_type_eq left_term constant_type with
+  (*unique_id is used to generate unique identifiers for the type variables*)
+    (*this function is an absolute mess, fixing it first then refactoring*)
+let rec infer_type_eq term constant_type lambda_depth fvar_rec bvar_rec unique_id = match term with
+    | Constant c -> Some (constant_type c, [], fvar_rec, bvar_rec, unique_id)
+    | FVar var_name ->
+            let new_fvar_rec, fvar_type = 
+                match retrieve_var_name var_name fvar_rec with
+                    | None -> (var_name, unique_id)::fvar_rec, Var unique_id
+                    | Some type_var_id -> fvar_rec, Var type_var_id
+            in
+            Some (fvar_type, [], new_fvar_rec, bvar_rec, unique_id+1)
+    | BVar var_id -> 
+            let new_bvar_rec, bvar_type =
+                match retrieve_var_name (lambda_depth - var_id - 1) bvar_rec with
+                    | None -> (lambda_depth - var_id - 1, unique_id)::bvar_rec, Var unique_id
+                    | Some type_var_id -> bvar_rec, Var type_var_id
+            in
+            Some (bvar_type, [], fvar_rec, new_bvar_rec, unique_id+1)
+    | Abs sub_term -> 
+        begin
+            let new_bvar_rec = (lambda_depth, unique_id)::bvar_rec in
+            match infer_type_eq sub_term constant_type (lambda_depth + 1) fvar_rec new_bvar_rec (unique_id+1) with
                 | None -> None
-                | Some (left_type, left_type_eq) -> 
-                    begin
-                    match left_type with
-                        | Arrow (arg_type, res_type) -> Some(res_type, (arg_type, right_type)::right_type_eq@left_type_eq)
-                        | _ -> None
-                    end
+                | Some (type_res, type_eq, new_fvar_rec, bvar_rec_res, new_unique_id) ->
+                        Some (Arrow(Var unique_id, type_res), type_eq, new_fvar_rec, bvar_rec_res, new_unique_id)
+        end
+    | App (left_term, right_term) -> 
+            let res_right_term = infer_type_eq right_term constant_type lambda_depth fvar_rec bvar_rec unique_id in
+            match res_right_term with
+                | None -> None
+                | Some (right_type, right_type_eq, fvar_rec_right, bvar_rec_right, unique_id_right) ->
+                    let cutoff_bvar_rec = remove_bvars_cutoff lambda_depth bvar_rec_right in
+                    let res_left_term = infer_type_eq left_term constant_type lambda_depth fvar_rec_right cutoff_bvar_rec unique_id_right in
+                begin
+                match res_left_term with
+                    | None -> None
+                    | Some (Arrow(arg_type, res_type), left_type_eq, fvar_rec_left, bvar_rec_left, unique_id_left) ->
+                        let new_type_eq = (arg_type, right_type)::right_type_eq@left_type_eq in
+                        Some(res_type, new_type_eq, fvar_rec_left, bvar_rec_left, unique_id_left) 
+                    | _ -> None
                 end
-            end
+
+let get_type_eq term constant_type =
+    match infer_type_eq term constant_type 0 [] [] 0 with
+        | None -> None
+        | Some (type_res, type_eq, _, _, _) ->
+                Some(type_res, type_eq)
 
 (*given a type and a substitution, will return the type with the appropriate substitutions having taken place*)
 let rec substitute_in_type type_to_change type_to_replace replacement_type =
-    if type_to_change = type_to_replace then replacement_type
+    if type_to_change = type_to_replace then 
+        replacement_type
     else
         match type_to_change with
             | Atom c -> Atom c
@@ -135,12 +157,12 @@ let simplify_eq type_eq type_to_replace replacement_type =
     List.map (fun (a, b) ->
         ((substitute_in_type a type_to_replace replacement_type), (substitute_in_type b type_to_replace replacement_type))) type_eq
 
-(*given a type variable will check whether it appears free in anothe type, that is whether it appears at all given we have no quantifiers *)
-let rec free_in type_var_id type_to_check = match type_to_check with
+(*given a type variable will check whether it appears in a type *)
+let rec appears_in type_var_id type_to_check = match type_to_check with
     | Atom _ -> false
     | Var var_id when type_var_id = var_id -> true
     | Var _ -> false
-    | Arrow (left, right) -> (free_in type_var_id left) || (free_in type_var_id right)
+    | Arrow (left, right) -> (appears_in type_var_id left) || (appears_in type_var_id right)
 
     (* given a list of type substitutions and two types will add the substitution to the list
     and apply the new substitution to all the the types in the substitution list*)
@@ -170,20 +192,20 @@ let rec extract_eq (type_1: 'a linear_implicative_type) (type_2: 'a linear_impli
 
 (*simplifies the type equations by successive rewriting*)
 (*will return None if unification fails*)
-            (*the substitutions is a list of pairs where the left term is to be replaced by the right one*)
+(*the substitutions is a list of pairs where the left term is to be replaced by the right one*)
 let rec unify_eq (type_eq: ('a linear_implicative_type * 'a linear_implicative_type) list)  substitution = match type_eq with
     (*Base case*)
     | [] -> Some (substitution)
     (*Trivial*)
     | (type_1, type_2)::t when type_1 = type_2 -> unify_eq t substitution
     (*Bind*)
-    | (Var var_id, new_type) :: t when not (free_in var_id new_type) ->
+    | (Var var_id, new_type) :: t when not (appears_in var_id new_type) ->
             unify_eq (simplify_eq t (Var var_id) new_type) (add_substitution substitution (Var var_id) new_type)
-    | (new_type, Var var_id) :: t when not (free_in var_id new_type) ->
+    | (new_type, Var var_id) :: t when not (appears_in var_id new_type) ->
             unify_eq (simplify_eq t (Var var_id) new_type) (add_substitution substitution (Var var_id) new_type)
     (*Check*)
-    | (Var var_id, new_type) :: _ when free_in var_id new_type-> None
-    | (new_type, Var var_id) :: _ when free_in var_id new_type -> None
+    | (Var var_id, new_type) :: _ when appears_in var_id new_type -> None
+    | (new_type, Var var_id) :: _ when appears_in var_id new_type -> None
     (*Dec and Dec fail*) 
     | (type_1, type_2):: t ->
             let eq_res, ok = extract_eq type_1 type_2 in
@@ -191,15 +213,18 @@ let rec unify_eq (type_eq: ('a linear_implicative_type * 'a linear_implicative_t
                 unify_eq (eq_res@t) substitution
             else None
 
-            (*given a linear lambda term (should work with any lambda terms) returns the most general type that can be infered, if it cannot be typed then None is returned*)
+(*given a linear lambda term (should work with any lambda terms) returns the most general type that can be infered, if it cannot be typed then None is returned*)
 let infer_term_type (term: 'a lambda_term) (constant_type: 'a  -> 'b linear_implicative_type) =
     begin
-    match infer_type_eq term constant_type with
+    match get_type_eq term constant_type with
     | None -> None
     | Some (tmp_type, type_eq) ->
         begin
         match unify_eq type_eq [] with
-            | Some substitutions -> Some (List.fold_left (fun type_to_change (type_to_replace, replacement_type) -> substitute_in_type type_to_change type_to_replace replacement_type ) tmp_type substitutions)
+            | Some substitutions ->
+                    Some (List.fold_left 
+                        (fun type_to_change (type_to_replace, replacement_type) ->
+                            substitute_in_type type_to_change type_to_replace replacement_type ) tmp_type substitutions)
             | None -> None
         end
     end
@@ -218,5 +243,6 @@ let types_compatible type_1 type_2 =
   (*check that the given lambda term can be typed with the target type*)
 let type_check term test_type constant_type = 
     match infer_term_type term constant_type with
-        | Some(infered_type) -> types_compatible infered_type test_type
+        | Some(infered_type) ->
+                types_compatible infered_type test_type
         | None -> false
