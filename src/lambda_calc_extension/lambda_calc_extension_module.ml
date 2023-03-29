@@ -11,7 +11,10 @@ type pre_string = Star
 (* this is how we will represent strings) *)
 let string_type = Arrow(Atom Star, Atom Star)
 
+(* the empty string*)
+let epsilon = Abs (BVar 0)
+
 (* given two terms encoding strings, will return the term encoding their concatenation*)
-(* will probably have to switch to DeBrujn notation unless i want things to become a nightmare*)
-(*let concat str_1 str_2 = 
-    Constant "come back once DeBrujn is done"*)
+let (++) str_1 str_2 = 
+    Abs (App (str_1, App(str_2, BVar 0)))
+

@@ -32,10 +32,10 @@ let rec alpha_eq term_1 term_2 =
         | BVar var_id_1, BVar var_id_2 -> var_id_1 = var_id_2
         | _ -> false
 
-(* given a lambda term, will replace all the variables bounded at a higher (given) level but free here by the new_term*)
+(* given a lambda term, will replace all the instanceas of a variable bounded at a higher (given) level but locally free by the new_term*)
 let rec substitute_bounded_var term var_level new_term =
     (*this feels like it could be handled better*)
-    if var_level <= 0 then failwith "invalid argument var_level must be a positive integer"
+    if var_level < 0 then failwith "invalid argument var_level must be a positive integer"
     else
     match term with
     | Constant c -> Constant c
@@ -49,30 +49,32 @@ let rec substitute_bounded_var term var_level new_term =
 
 
 
-(*
-(*given a linear lambda term, returns a normalised form of that term, since it's linear reduction strategy doesn't matter, i think*)
+(*given a lambda term, returns a normalised form of that term, since the given lambda terms
+ * are supposed to be linear linear reduction strategy doesn't matter, i think*)
 let rec normalised_term = function
   | Constant c -> Constant c
-  | Var var_id -> Var var_id
-  | Abs (var_id, sub_term) -> Abs (var_id, normalised_term sub_term)
+  | BVar var_id -> BVar var_id
+  | FVar var_name -> FVar var_name
+  | Abs sub_term -> Abs (normalised_term sub_term)
   | App (left_term, right_term) -> (
       match left_term with
       (* beta reduction *)
-      | Abs (var_id, sub_term) ->
-          let normalised_left_term = normalised_term sub_term in
-          let normalised_right_term = normalised_term right_term in
-          substitute_var normalised_left_term var_id normalised_right_term
+      | Abs sub_term ->
+        let reduction_res = substitute_bounded_var sub_term 0 right_term in
+        normalised_term reduction_res
       | _ ->
           let normalised_left_term = normalised_term left_term in
           let normalised_right_term = normalised_term right_term in
           App (normalised_left_term, normalised_right_term))
-*)
 
 let rec print_type (li_type: int linear_implicative_type) = match li_type with
     | Atom n -> print_string ("Atom(" ^ (string_of_int n) ^ ")")
     | Arrow(ltype, rtype) -> print_type ltype; print_string " -> "; print_type rtype
     | Var var_id -> print_string ("Var(" ^ string_of_int var_id ^ ")")
 
+
+let beta_eq term_1 term_2 =
+    alpha_eq (normalised_term term_1) (normalised_term term_2)
 
 (* given a variable id will return the associated variable name in the given list*)
 let rec retrieve_var_name var_id = function

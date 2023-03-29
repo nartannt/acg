@@ -2,7 +2,7 @@
  (public_name acg.acg_private)
  (name acg_module)
  (modules acg_module)
- (libraries acg.lambda_calc))
+ (libraries acg.lambda_calc acg.lambda_calc_extension))
 
 (tests
  (names test_acg)

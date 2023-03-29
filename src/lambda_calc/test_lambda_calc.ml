@@ -30,25 +30,27 @@ let () = assert (abs_term_3 = substitute_bounded_var abs_term_1 1 constant_term_
 (*would be nice if we had more tests, and bigger tests, will add if bugs are found*)
 
 (*tests for normalisation of lambda terms*)
-(*lambda terms that are already normalised*)(*
-let () = assert (constant_term = normalised_term constant_term)
-let () = assert (var_term = normalised_term var_term)
-let () = assert (app_term_ok = normalised_term app_term_ok)
+(*lambda terms that are already normalised*)
+let () = assert (constant_term_1 = normalised_term constant_term_1)
+let () = assert (var_term_1 = normalised_term var_term_1)
 
 (*lambdas terms that have beta-redexes*)
-let redex_term = App (abs_term_ok, constant_term_2)
-let double_redex_term = App (abs_term_ok, App (abs_term_ok, constant_term_2))
-let constant_app = App (constant_term, constant_term_2)
-let () = assert (constant_app = normalised_term redex_term)
+let beta_redex_1 = App(Abs (BVar 0), constant_term_1)
+let beta_redex_2 = App(Abs(App(constant_term_1, BVar 0)), constant_term_2)
 
-let () =
-  assert (App (constant_term, constant_app) = normalised_term double_redex_term)
+let nested_redex_1 = App(Abs(App(constant_term_1, BVar 0)), beta_redex_2)
 
-let () =
-  assert (
-    App (constant_app, App (constant_term, constant_app))
-    = normalised_term (App (redex_term, double_redex_term)))
-*)
+let created_redex_1 = App ( Abs(App(BVar 0, constant_term_2)), Abs(BVar 0))
+
+let () = assert (beta_eq constant_term_1 beta_redex_1)
+let () = assert (beta_eq app_term_1 beta_redex_2)
+
+let () = assert (beta_eq (App(constant_term_1, app_term_1)) nested_redex_1)
+
+let () = assert (beta_eq created_redex_1 constant_term_2)
+
+
+
 
 (*testing substitute_in_type*)
 let type_1 = Arrow(Var 1, Atom 0)

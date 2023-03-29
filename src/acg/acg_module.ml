@@ -1,5 +1,4 @@
-(*open Lambda_calc*)
-(*
+open Lambda_calc
 
 (*this whole section is beat for beat a translation of the orignal 2001 paper by de Groote*)
 (*can you believe this was published the same year i was born*)
@@ -26,8 +25,9 @@ let rec list_to_fun (l: ('a * 'b) list) (elem: 'a) = match l with
 (* term could be (should be?) anonymous but adding type annotation seemed to make things clearer*)
 let rec homomorphic_extension_lamba (g: 'a -> 'b lambda_term) (term: 'a lambda_term) = match term with
     | Constant c -> g c
-    | Var var_id -> Var var_id
-    | Abs (var_id, sub_term) -> Abs (var_id, homomorphic_extension_lamba g sub_term)
+    | BVar var_id -> BVar var_id
+    | FVar var_name -> FVar var_name
+    | Abs ( sub_term) -> Abs ( homomorphic_extension_lamba g sub_term)
     | App (left_term, right_term) -> App (homomorphic_extension_lamba g left_term, homomorphic_extension_lamba g right_term)
 
     (*same thing but for linear implicative types*)
@@ -55,7 +55,7 @@ let in_abstract_lang term acg =
 (*when the function is between lambda terms *)
 let rec list_antecedents (element: 'b lambda_term) (list_fun: ('a * 'b lambda_term) list) = match list_fun with
     | [] -> []
-    | (a, b)::t when alpha_eq b element -> (Constant a)::(list_antecedents element t)
+    | (a, b)::t when beta_eq b element -> (Constant a)::(list_antecedents element t)
     | (_, _)::t -> list_antecedents element t 
 
 
@@ -77,13 +77,14 @@ let rec generate_pairs list_left list_right = match list_left, list_right with
   this implies the function is probably wrong, additionally this is a worse case scenario doubly exponential function*)
 let rec match_object_term (object_term: 'd lambda_term) (term_translate_list: ('b * 'd lambda_term) list) =
     (*base case, the term is part of the domain*)
-    let (antecedents: ('b lambda_term) list) = list_antecedents object_term term_translate_list in
-    match object_term with
-        | Constant _ -> antecedents
-        | Var var_id -> [Var var_id] (*this step is important as it allows us to reconstruct the antecedent abstractions correctly*)
-        | Abs (var_id, sub_term) ->
+    let (antecedents: ('b lambda_term) list) = list_antecedents (normalised_term object_term) term_translate_list in
+    let sub_antecedents = match normalised_term object_term with
+        | Constant _ -> []
+        | BVar var_id -> [BVar var_id]
+        | FVar var_name -> [FVar var_name]
+        | Abs (sub_term) ->
                 let sub_term_antecedants = match_object_term sub_term term_translate_list in
-                List.map (fun term -> Abs(var_id, term)) sub_term_antecedants (*we are allowed to do this because we kept the same var_id when handling Vars*)
+                List.map (fun term -> Abs(term)) sub_term_antecedants
         | App (left_term, right_term) ->
                 let antecedents_left = match_object_term left_term term_translate_list in
                 let antecedents_right = match_object_term right_term term_translate_list in
@@ -91,7 +92,12 @@ let rec match_object_term (object_term: 'd lambda_term) (term_translate_list: ('
                 (*will stick with naïve implementation until performance demands it (if i'm lucky it won't happen until i start dealing with large semantics and lexicons)*)
 
                 (*cause of double exponentialyness*)
-                generate_pairs antecedents_left antecedents_right
+                let res = generate_pairs antecedents_left antecedents_right in
+                print_int (List.length res);
+                print_string " -> app res\n";
+                res
+    in
+    antecedents @ sub_antecedents
 
 
 (*putting everything together*)
@@ -102,4 +108,4 @@ let in_object_lang (term: 'd lambda_term) (acg: ('a, 'b, 'c, 'd) abstract_catego
     (*because i do not trust match_object_term*)
     let _ = List.map (fun antecedent -> assert (g antecedent = term)) antecedents in
     let (constant_type_fun: 'b -> 'a linear_implicative_type) = list_to_fun acg.abstract_vocabulary.constant_typing_list in
-    List.exists (fun _term_antecedent -> (type_check _term_antecedent s constant_type_fun)) antecedents*)
+    List.exists (fun _term_antecedent -> (type_check _term_antecedent s constant_type_fun)) antecedents

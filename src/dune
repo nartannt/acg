@@ -4,6 +4,12 @@
  (name lambda_calc)
  (libraries acg.lambda_calc_private))
 
+(library
+ (public_name acg.lambda_calc_extension)
+ (modules lambda_calc_extension)
+ (name lambda_calc_extension)
+ (libraries acg.lambda_calc_extension_private))
+
 (executable
  (public_name main)
  (name main)
