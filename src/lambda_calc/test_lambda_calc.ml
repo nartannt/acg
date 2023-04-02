@@ -41,6 +41,10 @@ let beta_redex_2 = App(Abs(App(constant_term_1, BVar 0)), constant_term_2)
 let nested_redex_1 = App(Abs(App(constant_term_1, BVar 0)), beta_redex_2)
 
 let created_redex_1 = App ( Abs(App(BVar 0, constant_term_2)), Abs(BVar 0))
+let created_redex_2 = App( App(Abs( Abs (BVar 0)), constant_term_1), constant_term_2)
+
+let created_redex_3 = Abs(App(constant_term_1, App(constant_term_2, BVar 0)))
+let res_1 = (App(constant_term_1, App(constant_term_2, Abs(BVar 0))))
 
 let () = assert (beta_eq constant_term_1 beta_redex_1)
 let () = assert (beta_eq app_term_1 beta_redex_2)
@@ -48,9 +52,9 @@ let () = assert (beta_eq app_term_1 beta_redex_2)
 let () = assert (beta_eq (App(constant_term_1, app_term_1)) nested_redex_1)
 
 let () = assert (beta_eq created_redex_1 constant_term_2)
+let () = assert (beta_eq created_redex_2 constant_term_2)
 
-
-
+let () = assert (beta_eq (App(created_redex_3, Abs(BVar 0))) (res_1) )
 
 (*testing substitute_in_type*)
 let type_1 = Arrow(Var 1, Atom 0)

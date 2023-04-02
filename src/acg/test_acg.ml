@@ -83,7 +83,9 @@ let f = (homomorphic_extension_lamba (list_to_fun lexicon.term_translate_list))
 let np = App(Constant A, Constant U)
 let a_unicorn_str = (cnst "a") ++ (cnst "unicorn")
 
+let () = print_string "\n\n\n  ---  HERE  --- \n\n\n"
 let () = assert (beta_eq (a_unicorn_str) (App(Abs((cnst "a") ++ (BVar 0)), (cnst "unicorn"))))
+
 let () = assert ( beta_eq (f np) (a_unicorn_str))
 let res = match_object_term a_unicorn_str lexicon.term_translate_list
 

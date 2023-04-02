@@ -16,5 +16,7 @@ let epsilon = Abs (BVar 0)
 
 (* given two terms encoding strings, will return the term encoding their concatenation*)
 let (++) str_1 str_2 = 
-    Abs (App (str_1, App(str_2, BVar 0)))
+    App(App(
+        Abs(Abs(Abs(
+            App(BVar 2, App(BVar 1, BVar 0))))) , str_1), str_2)
 
