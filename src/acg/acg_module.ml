@@ -93,10 +93,16 @@ let rec match_object_term (object_term: 'd lambda_term) (term_translate_list: ('
 
                 (*cause of double exponentialyness*)
                 let res = generate_pairs antecedents_left antecedents_right in
+                (*print_term (App(left_term, right_term));
+                print_string "\n";
                 print_int (List.length res);
-                print_string " -> app res\n";
+                print_string " -> app res\n";*)
                 res
     in
+    print_term (normalised_term object_term);
+    print_string " term len: ";
+    print_int (List.length (antecedents @ sub_antecedents));
+    print_string "\n";
     antecedents @ sub_antecedents
 
 

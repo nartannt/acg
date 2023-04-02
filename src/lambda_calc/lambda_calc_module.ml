@@ -32,6 +32,17 @@ let rec alpha_eq term_1 term_2 =
         | BVar var_id_1, BVar var_id_2 -> var_id_1 = var_id_2
         | _ -> false
 
+(*raises the indices of the free BVars in the given term by raise_amount *)
+let raise_free_vars term raise_amount = 
+    let rec raise_free cutoff_depth = function
+        | Constant c -> Constant c
+        | App (lt, rt) -> App(raise_free cutoff_depth lt, raise_free cutoff_depth rt)
+        | FVar var_name -> FVar var_name
+        | BVar var_id when var_id >= cutoff_depth -> BVar (var_id + raise_amount)
+        | BVar var_id -> BVar var_id
+        | Abs sub_term -> Abs (raise_free (cutoff_depth + 1) sub_term)
+    in raise_free 0 term
+
 (* given a lambda term, will replace all the instanceas of a variable bounded at a higher (given) level but locally free by the new_term*)
 let rec substitute_bounded_var term var_level new_term =
     (*this feels like it could be handled better i don't want it to be able to fail quitely*)
@@ -45,7 +56,7 @@ let rec substitute_bounded_var term var_level new_term =
     | FVar var_name -> FVar var_name
     | BVar var_id when var_id = var_level -> new_term
     | BVar var_id -> BVar var_id
-    | Abs (sub_term) -> Abs( substitute_bounded_var sub_term (var_level + 1) new_term)
+    | Abs (sub_term) -> Abs( substitute_bounded_var sub_term (var_level + 1) (raise_free_vars new_term 1))
 
 
 let rec print_term = function
@@ -86,11 +97,6 @@ let rec print_type (li_type: int linear_implicative_type) = match li_type with
 
 
 let beta_eq term_1 term_2 =
-    print_string "\nterm_1: ";
-    print_term (normalised_term term_1);
-    print_string "\nterm_2: ";
-    print_term (normalised_term term_2);
-    print_string "\n";
     alpha_eq (normalised_term term_1) (normalised_term term_2)
 
 (* given a variable id will return the associated variable name in the given list*)
