@@ -72,23 +72,70 @@ let rec print_term = function
                print_term st;
                print_string ")"
 
-(*given a lambda term, returns a normalised form of that term, since the given lambda terms
+(*checks whether a term is in normal head form*)
+let rec check_normalised = function
+    | Constant _ -> true
+    | BVar _ -> true
+    | FVar _ -> true
+    | Abs t -> check_normalised t
+    | App (l, r) ->
+            begin
+            match l with
+                | App _ -> false
+                | _ -> (check_normalised l) && (check_normalised r)
+            end
+
+(*given a lambda term, applies all possible beta_reductions to that term, since the terms
  * are supposed to be linear linear reduction strategy doesn't matter, if i'm not mistaken*)
-let rec normalised_term = function
+let rec pre_normalised_term = function
   | Constant c -> Constant c
   | BVar var_id -> BVar var_id
   | FVar var_name -> FVar var_name
-  | Abs sub_term -> Abs (normalised_term sub_term)
+  | Abs sub_term -> Abs (pre_normalised_term sub_term)
   | App (left_term, right_term) -> (
-      let normalised_left_term = normalised_term left_term in
-      let normalised_right_term = normalised_term right_term in
-      match normalised_left_term with
+      let pre_normalised_left_term = pre_normalised_term left_term in
+      let pre_normalised_right_term = pre_normalised_term right_term in
+      match pre_normalised_left_term with
       (* beta reduction *)
       | Abs sub_term ->
-        let reduction_res = substitute_bounded_var sub_term 0 normalised_right_term in
-        normalised_term reduction_res
+        let reduction_res = substitute_bounded_var sub_term 0 pre_normalised_right_term in
+        pre_normalised_term reduction_res
       | _ ->
-          App (normalised_left_term, normalised_right_term))
+          App (pre_normalised_left_term, pre_normalised_right_term))
+
+  (*for an explanation on the the whole normalisation thing*)
+(*http://www.lsv.fr/~goubault/Lambda/strategies-step-by-step_compressed.pdf*)
+
+(*given a term that is not a lambda abstraction will return a list of its arguments as understood
+ * in the definition of normal head form*)
+let rec extract_arg_list = function
+    | Constant c -> [Constant c]
+    | BVar var_id -> [BVar var_id]
+    | FVar var_name -> [FVar var_name]
+    | Abs t -> [Abs t]
+    (*the order is very important*)
+    | App (l, r) -> (extract_arg_list l) @ (extract_arg_list r)
+
+(*takes as argument the list of "arguments" given by extract_arg_list and returns a series of
+ * applications compatible with normal head form*)
+let rec normalised_arguments = function
+    | [] -> failwith "invalid argument"
+    | [h] -> h
+    | h1::t -> App(h1, normalised_arguments t)
+
+let normalised_term term =
+    let rec final_normalised_term = function
+        | Constant c -> Constant c
+        | BVar var_id -> BVar var_id
+        | FVar var_name -> FVar var_name
+        | Abs t -> Abs (final_normalised_term t)
+        | App (l, r) ->
+                let n_l = final_normalised_term l in
+                let n_r = final_normalised_term r in
+                let arg_list = extract_arg_list (App(n_l, n_r)) in
+                normalised_arguments arg_list
+    in final_normalised_term (pre_normalised_term term)
+
 
 let rec print_type (li_type: int linear_implicative_type) = match li_type with
     | Atom n -> print_string ("Atom(" ^ (string_of_int n) ^ ")")
@@ -97,7 +144,12 @@ let rec print_type (li_type: int linear_implicative_type) = match li_type with
 
 
 let beta_eq term_1 term_2 =
-    alpha_eq (normalised_term term_1) (normalised_term term_2)
+    let n_term_1 = normalised_term term_1 in
+    let n_term_2 = normalised_term term_2 in
+    (*nice little invariant that leaves us feeling a bit safer*)
+    assert (check_normalised n_term_1);
+    assert (check_normalised n_term_2);
+    alpha_eq (n_term_1) (n_term_2)
 
 (* given a variable id will return the associated variable name in the given list*)
 let rec retrieve_var_name var_id = function

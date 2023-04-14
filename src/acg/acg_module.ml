@@ -74,7 +74,8 @@ let rec generate_pairs list_left list_right = match list_left, list_right with
 (* improved method would make sure that we don't test the same sub-terms multiple times*)
 
 (*this function is making me uneasy, because proving it to be correct would probably be a nightmare
-  this implies the function is probably wrong, additionally this is a worse case scenario doubly exponential function*)
+  this implies the function is probably wrong, additionally this is a doubly exponential function (hopefully not the case in practice)*)
+(* we will consider normalised terms the whole way through*)
 let rec match_object_term (object_term: 'd lambda_term) (term_translate_list: ('b * 'd lambda_term) list) =
     (*base case, the term is part of the domain*)
     let (antecedents: ('b lambda_term) list) = list_antecedents (normalised_term object_term) term_translate_list in

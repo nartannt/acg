@@ -153,3 +153,9 @@ let (test_term: int lambda_term) = Constant 1
 let dummy_type_fun = fun n -> if n = 0 then Atom "ay" else Atom "ay"
 let () = assert (type_check test_term test_type dummy_type_fun()*)
 
+
+let normal_term_1 = App(Constant 1, Constant 1)
+let not_normal_1 = App(App(Constant 0, Constant 0), Constant 0)
+
+let () = assert (check_normalised normal_term_1)
+let () = assert (not (check_normalised not_normal_1))
