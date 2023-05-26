@@ -100,6 +100,30 @@ let common_free_vars term_1 term_2 =
     List.sort_uniq (fun _ _ -> 0) (free_vars_1 @ free_vars_2)
 
 
+(*given a hyperedge list, will return a pair of hyperedge lists, one whose label are in the label_list
+ * and one whose labels aren't *)
+let rec seperate_edges edge_list label_list = match edge_list with
+    | [] -> [], []
+    | hd::tl when List.mem (fst hd) label_list ->
+            let not_in_list, in_list = seperate_edges tl label_list in
+            not_in_list, (hd::in_list)
+    | hd::tl -> 
+            let not_in_list, in_list = seperate_edges tl label_list in
+            (hd::not_in_list, in_list)
+
+
+(* given two hypergraphs with the same external nodes, will return the fusion of both *)
+(* the hypergraphs must be derived from an application whose terms will be passed to the funciton*)
+let fuse_hypergraphs hg_1 hg_2 term_1 term_2 =
+    let common_free_vars = common_free_vars term_1 term_2 in
+    let not_in_list_1, _in_list_1 = seperate_edges hg_1 common_free_vars in
+    let not_in_list_2, _in_list_2 = seperate_edges hg_2 common_free_vars in
+    let _unchanged_edges = not_in_list_1 @ not_in_list_2 in
+    []
+
+    
+
+
  (* given an almost linear term and its type, returns the associated hypergraph*)
 let rec hypergraph_of_term term term_type = match term with
     | Constant _ | FVar _ | BVar _ -> [Hyperedge (term, num_list (type_atomic_card term_type))]
