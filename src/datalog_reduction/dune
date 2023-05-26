@@ -1,0 +1,12 @@
+
+(library
+ (public_name acg.datalog_reduction_private)
+ (name datalog_reduction_module)
+ (modules datalog_reduction_module)
+ (libraries acg.lambda_calc))
+
+(tests
+ (names test_datalog_reduction)
+ (modules test_datalog_reduction)
+ (libraries acg.datalog_reduction_private))
+

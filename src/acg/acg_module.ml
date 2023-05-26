@@ -1,7 +1,6 @@
 open Lambda_calc
 
 (*this whole section is beat for beat a translation of the orignal 2001 paper by de Groote*)
-(*can you believe this was published the same year i was born*)
 (*will add references and all that other stuff when i can be bothered or when the project will start taking proper form*)
 
 type ('a, 'b) vocabulary = {
@@ -76,6 +75,7 @@ let rec generate_pairs list_left list_right = match list_left, list_right with
 (*this function is making me uneasy, because proving it to be correct would probably be a nightmare
   this implies the function is probably wrong, additionally this is a doubly exponential function (hopefully not the case in practice)*)
 (* we will consider normalised terms the whole way through*)
+(*takes in an object term and attempts to find all of its antecedents by the function represented by the term_translate list*)
 let rec match_object_term (object_term: 'd lambda_term) (term_translate_list: ('b * 'd lambda_term) list) =
     (*base case, the term is part of the domain*)
     let (antecedents: ('b lambda_term) list) = list_antecedents (normalised_term object_term) term_translate_list in

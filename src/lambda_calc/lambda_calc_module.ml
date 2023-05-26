@@ -100,6 +100,7 @@ let rec pre_normalised_term = function
       | Abs sub_term ->
         let reduction_res = substitute_bounded_var sub_term 0 pre_normalised_right_term in
         pre_normalised_term reduction_res
+      (*not a reduction*)
       | _ ->
           App (pre_normalised_left_term, pre_normalised_right_term))
 

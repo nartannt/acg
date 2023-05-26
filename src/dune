@@ -10,6 +10,12 @@
  (name lambda_calc_extension)
  (libraries acg.lambda_calc_extension_private))
 
+(library
+ (public_name acg.datalog_reduction)
+ (modules datalog_reduction)
+ (name datalog_reduction)
+ (libraries acg.datalog_reduction_private))
+
 (executable
  (public_name main)
  (name main)
