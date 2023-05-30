@@ -12,6 +12,7 @@ let almost_linear_term = function | _ -> true
 (* the secong int represents the node's id, it is used to identify the node and must therefore be unique *)
 (* the first int is used to mark the node as external if it is greater than 0, then this number will mark
  * the external node's place, if the node is not external, it will be 0*)
+(* node_ids are supposed to be positive *)
 type node =
     | Node of int * int
 
@@ -42,8 +43,9 @@ let num_list n =
 
 (*returns the last n elements of list l (in order), if l contains less than n elements, l is returned *)
 (* preserves order *)
+(* if n is less than 0 then it returns l*)
 let rec last_elements l n =
-    if n < 0 then failwith "invalid argument, a list cannot have less than 0 elements"
+    if n < 0 then l
     else
     if List.length l <= n then l
     else 
@@ -56,29 +58,115 @@ let is_external node =
     let Node(ext, _) = node in
     ext != 0
 
+(*removes duplicates from a list*)
+let rec remove_duplicates = function 
+    | [] -> []
+    | hd::tl when List.mem hd tl -> remove_duplicates tl
+    | hd::tl -> hd::(remove_duplicates tl)
+
 (* returns a list of all external nodes (in order) of a hyperedge *)
 let hyperedge_ext_nodes hyperedge =
     let Hyperedge (_, node_list) = hyperedge in
     List.filter is_external node_list
 
+(* given two external nodes, will compare them*)
+let compare_nodes node_1 node_2 =
+    let Node(rank_1, _) = node_1 in
+    let Node(rank_2, _) = node_2 in
+    rank_1 - rank_2
+
 (*given a hypergraph, will return the last n external nodes of the hypergraph, in increasing order
  * if n is greater than the number of external nodes, all external nodes are returned *)
+(* if n is negative, l is returned *)
 let last_ext_nodes n hypergraph =
     let Hypergraph edge_list = hypergraph in
-    let external_nodes = hyperedge_ext_nodes edge_list in
-    last_elements external_nodes n
+    let add_ext_nodes node_list edge =
+        remove_duplicates((hyperedge_ext_nodes edge) @ node_list)
+    in
+    let external_nodes = List.fold_left add_ext_nodes [] edge_list in
+    List.sort compare_nodes (last_elements external_nodes n)
+   
+(* given a node, will return its id*)
+let node_id node =
+    let Node(_, id) = node in
+    id
 
-     
+(* given a hypergraph, will return the maximum int used to identify nodes*)
+let max_node_id hypergraph =
+    let max_node_id_edge hyperedge =
+        let Hyperedge(_, node_list) = hyperedge in
+        List.fold_left (fun id node -> max id (node_id node)) (-1) node_list
+    in
+    let Hypergraph edge_list = hypergraph in
+    List.fold_left (fun max_id edge -> max max_id (max_node_id_edge edge)) (-1) edge_list
+        
+(* given a hypergraph and an int will add the int+1 to all node_ids of the hypergraph
+ * this ensures that no collisions will occur with another hypergraph whose node_ids are all
+ * less than the given int*)
+let rename_graph hypergraph increment =
+    let Hypergraph edge_list = hypergraph in
+    let rename_edge hyperedge =
+        let Hyperedge(label, node_list) = hyperedge in
+        let rename_node node =
+            let Node(ext, node_id) = node in
+            Node(ext, node_id + increment)
+        in
+        Hyperedge(label, (List.map rename_node node_list))
+    in
+    Hypergraph (List.map rename_edge edge_list)
+
+
+(* identifies all the external nodes of the given hypergraph with the nodes of the list
+ * using their respective orders *)
+(* assumes that the list is given in increasing order *)
+(* will need to refactor into a generic node identifying function, shouldn't be very hard
+ * instead, take two lists as arguments and apply the renaming to the given hypergraph*)
+let identify_external_nodes ext_nodes_list hypergraph =
+    let ext_nodes_graph = last_ext_nodes (-1) hypergraph in
+    
+    (*zips the external node lists*) 
+    let pair_list = List.combine ext_nodes_graph ext_nodes_list in
+    
+    (*given an external node and a list of node pairs, if the node appears in the left member of 
+     * a pair in the list, it will be replaced by the right one
+     * if the node is not external, it is returned as is *)
+    (* pretty inefficient, as we go through the whole list for each node
+     * no easy way of doing something better as far as i can see *)
+    let rec rename_pair_list pair_list node = match pair_list with
+        | [] -> node
+        | (Node (_, id), new_node)::_ when node_id node = id ->
+            new_node
+        | _::tl -> rename_pair_list tl node
+    in
+    
+    let Hypergraph graph_edges = hypergraph in
+    let rename_nodes_in_edge hyperedge =
+        let Hyperedge(label, node_list) = hyperedge in
+        let new_node_list = List.map (rename_pair_list pair_list) node_list in
+        Hyperedge(label, new_node_list)
+    in
+    let new_graph_edges = List.map rename_nodes_in_edge graph_edges in
+    Hypergraph new_graph_edges
+
+    (*rename the lowest external node in the graph with the lowest one in the list*)
 
 (* given two hypergraphs of terms forming an application, will return the resulting hypergraph*)
 let fuse_app_hypergraphs left_hyperg right_hyperg =
-    let Hypergraph hedge_list_right = right_hyperg in
     let Hypergraph hedge_list_left = left_hyperg in
-
-    let ext_nodes_right = last_ext_nodes
-    (*find last external nodes of left*)
+    (*get max id of left*)
+    let max_node_id_left = max_node_id left_hyperg in
     (*rename all nodes of right in order to avoid node_id collisions*)
-    (*for each external node in right, rename it to the corresponding node in left*)
+    let Hypergraph hedge_list_right = rename_graph right_hyperg max_node_id_left in
+
+    (* get external nodes of right*)
+    let ext_nodes_right = last_ext_nodes (-1) right_hyperg in
+    let ext_nodes_right_card = List.length ext_nodes_right in
+    (*find last external nodes of left*)
+    let last_ext_nodes_left = last_ext_nodes ext_nodes_right_card left_hyperg in
+
+    (* identify the external nodes of right with the last external nodes of left*)
+    let new_right_graph = identify_external_nodes last_ext_nodes_left (Hypergraph hedge_list_right) in
+
     (*identify the edges shared by free variables in right and left as well as the nodes they are incident on*)
 
     (*placeholder result*)
@@ -148,11 +236,6 @@ let free_vars_in term =
     in
     free_vars 0 term
 
-(*removes duplicates from a list*)
-let rec remove_duplicates = function 
-    | [] -> []
-    | hd::tl when List.mem hd tl -> remove_duplicates tl
-    | hd::tl -> hd::(remove_duplicates tl)
 
 (* given two terms under the same nb of lambda abstractions
  * returns a list of free variables that they have in common *)
