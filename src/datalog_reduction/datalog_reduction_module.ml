@@ -254,6 +254,46 @@ let fuse_app_hypergraphs left_hyperg right_hyperg left_term right_term =
     res_hypergraph
 
 
+(* returns the rank of the last external node of a given hypergraph *)
+let max_ext_node_rank hypergraph =
+    let Hypergraph edge_list = hypergraph in
+
+    let max_ext_node_rank_edge hyperedge =
+        let Hyperedge (_, node_list) = hyperedge in
+        let greater_rank rank node =
+            let Node (node_rank, _) = node in
+            max rank node_rank
+        in
+        List.fold_left greater_rank 0 node_list
+    in
+
+    List.fold_left (fun rank edge -> max (max_ext_node_rank_edge edge) rank) 0 edge_list
+
+(* for a term lambda x. u, assuming that sub_term_hgraph is the hypergraph derived from u and that bounded_var
+ * is the term corresponding to x, will derive the hypergraph for lambda x. u *)
+let abs_graph bounded_var sub_term_hgraph =
+    let Hypergraph edge_list = sub_term_hgraph in
+    
+    let max_rank = max_ext_node_rank sub_term_hgraph in
+
+    let rec append_ext_nodes node_list base_rank = match node_list with
+        | [] -> []
+        | Node(_, node_id) :: tl ->
+                Node(base_rank + 1, node_id) :: (append_ext_nodes tl (base_rank + 1))
+    in
+    
+    let rec update_edge_list = function
+        | [] -> []
+        | Hyperedge(label, node_list)::tl when label = bounded_var ->
+                let new_node_list = append_ext_nodes node_list max_rank in
+                (* we can stop there will only be a single edge labeled by this term *)
+                Hyperedge(label, new_node_list)::tl
+        | hd::tl -> hd :: (update_edge_list tl)
+    in
+    let new_edge_list = update_edge_list edge_list in
+    Hypergraph new_edge_list
+
+
 (* failed attempt, might be able to recycle some stuff*)
 (*type node =
     | Node of int
