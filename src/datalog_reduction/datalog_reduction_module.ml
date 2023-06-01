@@ -1,6 +1,4 @@
-open Lambda_calc
-
-module SInt = Set.Make(Int)
+open Lambda_calc_module
 
 (* given a typable lambda term, will return a boolean if it is almost linear
  * an almost linear lambda term is one in for all subterms, if a variable occurs free more than once
@@ -25,7 +23,7 @@ type 'a hypergraph =
     | Hypergraph of 'a hyperedge list
 
 
-(* a coyple of utility functions*)
+(* a couple of utility functions*)
 
 (* calculates the number of occurences of atomic type in a linear implicative type *)
 let rec type_atomic_card linear_type = match linear_type with
@@ -34,12 +32,6 @@ let rec type_atomic_card linear_type = match linear_type with
     | Var _ -> failwith "contains a type variable, the number of occurences of atomic types cannot be evaluated"
 
 
-(* returns a list from 1 to n in increasing order *)
-let num_list n =
-    let rec desc_list n = 
-        if n = 1 then [1]
-        else n::(desc_list(n-1))
-    in List.rev (desc_list n)
 
 (*returns the last n elements of list l (in order), if l contains less than n elements, l is returned *)
 (* preserves order *)
@@ -293,110 +285,51 @@ let abs_graph bounded_var sub_term_hgraph =
     let new_edge_list = update_edge_list edge_list in
     Hypergraph new_edge_list
 
-
-(* failed attempt, might be able to recycle some stuff*)
-(*type node =
-    | Node of int
-
-type 'a hyperedge =
-    | Hyperedge of ('a lambda_term * int list)
-
-    
-
-type 'a hypergraph = 'a hyperedge list
-
-(* given a hypergraph will return a set of all its external nodes in increasing order *)
-let extract_node_list hypergraph =
-    let extract_nodes_edge hyperedge node_set =
-        let Hyperedge (_, node_list) = hyperedge in
-        List.fold_left (fun x y -> SInt.add y x) node_set node_list
-    in
-    let node_set = 
-        List.fold_left 
-            (fun set edge -> SInt.union (extract_nodes_edge edge SInt.empty) set) SInt.empty hypergraph in
-    SInt.elements node_set
+(* returns a list of external nodes ranked and labeled from 1 to n in increasing order *)
+let ext_nodes_list n =
+    let rec desc_list n = 
+        if n = 1 then [Node(1, 1)]
+        else Node(n, n)::(desc_list(n-1))
+    in List.rev (desc_list n)
 
 
-(* this does a full search for every single node, not efficient, would be better to sort
- * and then look for them, however, can't be bothered and the number of nodes shouldn't go beyond
- * a few hundred (and that would probably be pushing it) *)
-(* given two node lists and a node, will return the node in the new_nodes list that corresponds to its
- * position in the old_nodes list*)
-let rec corresponding_node old_nodes new_nodes search_node = match old_nodes, new_nodes with
-    | old_hd::_ , new_hd::_ when old_hd = search_node -> new_hd
-    | _::old_tl, _::new_tl -> corresponding_node old_tl new_tl search_node
-    | [], _ -> failwith "node not in given list"
-    | _, [] -> failwith "new nodes list too incomplete"
+(*this might be better placed in lambda_calc_module.ml*)
+type ('a, 'c) annotated_term =
+    | Constant of 'a * 'c linear_implicative_type
+    | BVar of int * 'c linear_implicative_type
+    | FVar of string * 'c linear_implicative_type
+    | App of (('a, 'c) annotated_term * ('a, 'c) annotated_term) * 'c linear_implicative_type
+    | Abs of ('a, 'c) annotated_term * 'c linear_implicative_type
 
+(*same here*)
+let rec term_of_annotated_term aterm = match aterm with
+    | Constant (c, _) -> Lambda_calc_module.Constant c
+    | BVar (var_id, _) -> BVar var_id
+    | FVar (var_name, _) -> FVar var_name
+    | App ((left_aterm, right_aterm), _) ->
+            let left_term = term_of_annotated_term left_aterm in
+            let right_term = term_of_annotated_term right_aterm in
+            App(left_term, right_term)
+    | Abs (sub_aterm, _) -> Abs (term_of_annotated_term sub_aterm)
 
-(* given a hypergraph and a list of nodes, will replace all the nodes in the hypergraph
- * by the corresponding node in the list, correspondance here meaning that the first (smallest)  node in the list
- * will replace the first (smallest) node in the graph ...*)
-let replace_nodes ext_nodes hypergraph =
-    let g_ext_nodes = extract_node_list hypergraph in
-    let replace_nodes_edges edge =
-        let Hyperedge (label, node_list) = edge in
-        let new_list = List.map (corresponding_node ext_nodes g_ext_nodes) node_list in
-        Hyperedge (label, new_list)
-    in
-    List.map replace_nodes_edges hypergraph
-    
+(* given a term and its type (the type must not contain any type variables) will
+ * return the corressponding hypergraph *)
+let rec hypergraph_of_term annotated_term = match annotated_term with
+    | Constant (_, term_type) | FVar (_, term_type) | BVar (_, term_type) -> 
+            let ext_nodes_num = type_atomic_card term_type in
+            let nodes = ext_nodes_list ext_nodes_num in
+            let term = term_of_annotated_term annotated_term in
+            let hyperedge = Hyperedge (term, nodes) in
+            Hypergraph [hyperedge]
+    | App (app_annotated_term, _) ->
+            let left_aterm, right_aterm = app_annotated_term in
+            let left_term = term_of_annotated_term left_aterm in
+            let right_term = term_of_annotated_term right_aterm in
 
-
-
-
-(* given a list of hyperedges, will return the first one found with the given label*)
-let rec edge_from_label hyperedge_list label = match hyperedge_list with
-    (* yes bc all i want to do rn is have to handle options yipee*)
-    | [] -> None
-    | hd::_ when fst hd = label -> Some(snd hd)
-    | _::tl -> edge_from_label tl label
-
-
-(* given a hyperedge and a hypegraph, will identify the hyperedge with the one (if there is one)
- * in the hypergraph, assumes that the labels are of terms under the same lambda abstraction *)
-(* assumes that no two edges are labeled by the same term in the hyergraph *)
-let rec identify_edge hyperedge hypergraph =
-    let Hyperedge hedge = hyperedge in
-    match hypergraph with
-    | [] -> []
-    | (Hyperedge hd) :: tl when fst hd = fst hedge ->
-            let new_node_list = remove_duplicates ((snd hd)@(snd hedge)) in
-            (* we can return because it is assumed no other edge will have the same label*)
-            (Hyperedge (fst hd, new_node_list))::tl
-    | (Hyperedge hd) :: tl -> (Hyperedge hd) :: (identify_edge hyperedge tl)
-
-    
-
-(* given two hypergraphs at the same lambda abstraction level
- * will identify the edges that have the same label*)
-let fuse_hypergraphs hypergraph_1 hypergraph_2 =
-    List.fold_left (fun graph edge -> identify_edge edge graph) hypergraph_1 hypergraph_2 
-    
-    
- (* given an almost linear term and its type, returns the associated hypergraph*)
-let rec hypergraph_of_term term term_type = match term with
-    | Constant _ | FVar _ | BVar _ -> [Hyperedge (term, num_list (type_atomic_card term_type))]
-    | App (left, right) ->
-            let left_type, right_type = match term_type with
-                | Arrow (lt, rt) -> lt, rt
-                | _ -> failwith "fucked up the typing of this term"
-            in
-            let left_hyperg = hypergraph_of_term left left_type in
-            let left_hyperg_nodes = extract_node_list left_hyperg in
-            
-            let right_hyperg = hypergraph_of_term right right_type in
-            let right_hyperg_nodes = extract_node_list right_hyperg in
-
-            assert (List.length left_hyperg_nodes = type_atomic_card left_type);
-            assert (List.length right_hyperg_nodes = type_atomic_card right_type);
-
-            let num_right_nodes = type_atomic_card right_type in
-
-            let last_left_nodes = last_elements left_hyperg_nodes num_right_nodes in 
-            
-            let new_right_hyperg = replace_nodes last_left_nodes right_hyperg in
-
-            fuse_hypergraphs new_right_hyperg left_hyperg
-
-    | _ -> []*)
+            let left_hyperg = hypergraph_of_term left_aterm in
+            let right_hyperg = hypergraph_of_term right_aterm in
+            fuse_app_hypergraphs left_hyperg right_hyperg left_term right_term
+    | Abs (sub_aterm, _) ->
+            let sub_graph = hypergraph_of_term sub_aterm in
+            let res_hypergraph = abs_graph (BVar 0) sub_graph in
+            res_hypergraph

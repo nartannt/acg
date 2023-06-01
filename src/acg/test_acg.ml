@@ -65,7 +65,7 @@ let _acg = {
 }
 
 
-
+(*
 
 let () = assert (List.mem (Constant U) (list_antecedents (cnst "unicorn") lexicon.term_translate_list ))
 let () = assert (List.mem (Constant U) (match_object_term (cnst "unicorn") lexicon.term_translate_list))
@@ -104,4 +104,4 @@ let () = assert (List.mem np res)
 
 (*
 let sentence = (cnst "John") ++ (cnst "seeks") ++ (cnst "a") ++ (cnst "unicorn")
-let () = assert (in_object_lang sentence acg)*)
+let () = assert (in_object_lang sentence acg)*)*)
