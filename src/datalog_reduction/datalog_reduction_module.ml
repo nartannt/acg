@@ -160,7 +160,11 @@ let free_vars_in term =
 let common_free_vars term_1 term_2 =
     let free_vars_1 = free_vars_in term_1 in
     let free_vars_2 = free_vars_in term_2 in
-    remove_duplicates (free_vars_1 @ free_vars_2)
+    let res = List.filter (fun elem -> List.mem elem free_vars_2) free_vars_1 in
+    (*print_string "nb of common free vars:\n";
+    print_int (List.length res);
+    print_string "\n";*)
+    res
 
 
 (* given two hypegraphs made from terms under the same lambda abstraction and a list of terms that
@@ -190,8 +194,10 @@ let identify_free_var_edges term_list hg_1 hg_2 =
         | [] -> [], []
         | term::tl ->
                 (* if any of the find fails, the term_list given was wrong*)
+                (*print_string "here\n";*)
                 let edge_1 = List.find (has_label term) edge_list_1 in
                 let edge_2 = List.find (has_label term) edge_list_2 in
+                (*print_string "ayooo\n";*)
 
                 let Hyperedge (_, node_list_1) = edge_1 in
                 let Hyperedge (_, node_list_2) = edge_2 in

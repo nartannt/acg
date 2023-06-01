@@ -24,6 +24,7 @@ let normalise_node_ranks hypergraph =
 (* whilst this function only guarantees that the given edges are incident on external nodes of the
  * same rank*)
 let test_hyperedges he_1 he_2 =
+    (*print_string "begin hyperedge comparison\n";*)
     let Hyperedge(label_1, node_list_1) = he_1 in
     let Hyperedge(label_2, node_list_2) = he_2 in
 
@@ -36,7 +37,14 @@ let test_hyperedges he_1 he_2 =
                 (ext_1 = ext_2) && res_tl
         | _ -> failwith "the hyperedges are incident on a different number of nodes"
     in
+    
+    (*print_string "perhaps the labels have a pb\n";
+    if label_1 != label_2 then print_string "labels aren't equal\n";*)
 
+    (*print_term label_1;
+    print_string "\n";
+    print_term label_2;
+    print_string "\n";*)
     (label_1 = label_2) && (ext_nodes_eq node_list_1 node_list_2)
 
 (*simply applies previous function to all edges*)
@@ -45,19 +53,26 @@ let test_hypergraphs hg_1 hg_2 =
     let Hypergraph edge_list_1 = normalise_node_ranks hg_1 in
     let Hypergraph edge_list_2 = normalise_node_ranks hg_2 in
 
+    (*print_string "list length: ";
+    print_int (List.length edge_list_2);
+    print_string "\n";*)
+    
     let has_label label edge =
         let Hyperedge(edge_label, _) = edge in
         label = edge_label
     in
 
-    let rec match_edges_labels el_1 el_2 = match el_1 with
+    (* will return a permutation of el_2 such that the label of its nodes correspond to those of el_1*)
+    let rec match_edges_labels el_1 el_2 = match el_2 with
         | [] -> []
-        | Hyperedge(label_1, _)::tl ->
-                let corresponding_edge = List.find (fun e -> has_label label_1 e) el_2 in
-                corresponding_edge :: (match_edges_labels tl el_2)
+        | Hyperedge(label_2, _)::tl ->
+                let corresponding_edge = List.find (fun e -> has_label label_2 e) el_1 in
+                corresponding_edge :: (match_edges_labels el_1 tl)
     in
 
     let matching_edge_list_2 = match_edges_labels edge_list_1 edge_list_2 in
+    
+    (*print_string "so far so good\n";*)
 
     List.fold_left2 (fun b e1 e2 -> b && (test_hyperedges e1 e2)) true edge_list_1 matching_edge_list_2
 
@@ -66,6 +81,19 @@ let test_hypergraphs hg_1 hg_2 =
 let aterm_1 = Datalog_reduction_module.Abs (
     (App (((BVar (0, Arrow (Atom 0, Atom 1)) ), Constant ("a", Atom 0)), Atom 1)),
     Arrow(Arrow(Atom 0, Atom 1), Atom 1))
+
+let x1_aterm = Datalog_reduction_module.App(
+    (Constant ("X1", Arrow(Arrow(Atom "e", Atom "e"), Atom "t")), Constant ("y", Atom "e")),
+    Arrow(Atom "e", Atom "t"))
+
+let x1_hgraph = Hypergraph [
+    Hyperedge (Constant "X1", [Node(1, 1); Node(2, 2); Node(0, 3)]);
+    Hyperedge (Constant "y", [Node(0, 3)])
+    ]
+
+let () =
+    let hg_x1 = hypergraph_of_term x1_aterm in
+    assert (test_hypergraphs hg_x1 x1_hgraph)
 
 let () =
     let hg_1 = hypergraph_of_term aterm_1 in
