@@ -25,6 +25,18 @@ type 'a hypergraph =
 
 (* a couple of utility functions*)
 
+let print_edge hyperedge =
+    let Hyperedge (label, node_list) = hyperedge in
+    print_string ("label: ");
+    print_term label;
+    print_string "\nnode list:\n";
+    List.iter (fun x ->
+        let Node(ext, id) = x in
+        print_string ("  ext: " ^ (string_of_int ext) ^ ", id: " ^ (string_of_int id) ^ "\n");
+    ) node_list;
+    print_string "\n"
+
+
 (* calculates the number of occurences of atomic type in a linear implicative type *)
 let rec type_atomic_card linear_type = match linear_type with
     | Atom _ -> 1
@@ -76,8 +88,10 @@ let last_ext_nodes n hypergraph =
         remove_duplicates((hyperedge_ext_nodes edge) @ node_list)
     in
     let external_nodes = List.fold_left add_ext_nodes [] edge_list in
-    List.sort compare_nodes (last_elements external_nodes n)
-   
+    (*this should be useless and removed once testing is done*)
+    let ext_nodes = List.filter is_external external_nodes in
+    List.sort compare_nodes (last_elements ext_nodes n)
+
 (* given a node, will return its id*)
 let node_id node =
     let Node(_, id) = node in
@@ -134,19 +148,20 @@ let identify_nodes old_nodes new_nodes hypergraph =
     let rename_nodes_in_edge hyperedge =
         let Hyperedge(label, node_list) = hyperedge in
         let new_node_list = List.map (rename_pair_list pair_list) node_list in
-        Hyperedge(label, new_node_list)
+        (*remove duplicates needed because we can have inputs that map two different nodes to the same one
+         * ex: [Node(_, 1); Node(_, 2)] [Node(_, 3); Node(_, 3)]*)
+        Hyperedge(label, remove_duplicates new_node_list)
     in
     let new_graph_edges = List.map rename_nodes_in_edge graph_edges in
     Hypergraph new_graph_edges
-
 
 (*should possibly be in lambda_calc*)
 (*given a lambda term, returns a list of all its free variables*)
 let free_vars_in term = 
     let rec free_vars lambda_depth = function
-        | BVar var_id when var_id >= lambda_depth -> [term]
+        | BVar var_id when var_id >= lambda_depth -> [BVar var_id]
         | BVar _ -> []
-        | FVar _ -> [term]
+        | FVar var_name -> [FVar var_name]
         | Constant _ -> []
         | Abs sub_term -> free_vars (lambda_depth + 1) sub_term
         (* will not filter out duplicates *)
@@ -161,9 +176,18 @@ let common_free_vars term_1 term_2 =
     let free_vars_1 = free_vars_in term_1 in
     let free_vars_2 = free_vars_in term_2 in
     let res = List.filter (fun elem -> List.mem elem free_vars_2) free_vars_1 in
-    (*print_string "nb of common free vars:\n";
+    (*print_string "nb of common free vars: ";
     print_int (List.length res);
-    print_string "\n";*)
+    print_string "\n";
+    print_string "nb of free vars 1: ";
+    print_int (List.length free_vars_1);
+    print_string "\n";
+    List.iter (fun elem -> print_term elem; print_string "\n") free_vars_1;
+    print_string "\nnb of free vars 2: ";
+    print_int (List.length free_vars_2);
+    print_string "\n";
+    List.iter (fun elem -> print_term elem; print_string "\n") free_vars_2;
+    print_string "\n ---\n";*)
     res
 
 
@@ -175,6 +199,10 @@ let common_free_vars term_1 term_2 =
 let identify_free_var_edges term_list hg_1 hg_2 =
     let Hypergraph edge_list_1 = hg_1 in
     let Hypergraph edge_list_2 = hg_2 in
+
+    (*print_string "term list length: ";
+    print_int (List.length term_list);
+    print_string "\n";*)
 
     (* given an edge, will return true iff it has the label label*)
     let has_label label edge =
@@ -193,6 +221,8 @@ let identify_free_var_edges term_list hg_1 hg_2 =
     let rec generate_list_pair term_list = match term_list with
         | [] -> [], []
         | term::tl ->
+                (*print_term term;
+                print_string "\n";*)
                 (* if any of the find fails, the term_list given was wrong*)
                 (*print_string "here\n";*)
                 let edge_1 = List.find (has_label term) edge_list_1 in
@@ -225,7 +255,26 @@ let identify_free_var_edges term_list hg_1 hg_2 =
     let res_hypergraph = identify_nodes old_fv_nodes new_fv_nodes (Hypergraph new_edges) in
     res_hypergraph
 
+(* given a list of external nodes and a hypergraph, will return a hypergraph where the external nodes have
+ * been replaced by internal ones (the id of the nodes is unchanges) *)
+let internalise_nodes ext_nodes_list hypergraph =
+    let Hypergraph edge_list = hypergraph in
 
+    let internalise_nodes_edge hyperedge =
+        let Hyperedge(label, node_list) = hyperedge in
+        let replace_nodes node =
+            let Node(_, id) = node in
+            if List.exists (fun x -> node_id x = id) ext_nodes_list then
+                Node(0, id)
+            else
+                node
+        in
+        let new_nodes = List.map replace_nodes node_list in
+        Hyperedge(label, new_nodes)
+    in
+
+    let new_edge_list = List.map internalise_nodes_edge edge_list in
+    Hypergraph new_edge_list
 
 (* given two hypergraphs of terms forming an application, will return the resulting hypergraph*)
 let fuse_app_hypergraphs left_hyperg right_hyperg left_term right_term =
@@ -242,13 +291,25 @@ let fuse_app_hypergraphs left_hyperg right_hyperg left_term right_term =
 
     (* identify the external nodes of right with the last external nodes of left*)
     let old_right_nodes = ext_nodes_right in
-    let new_right_graph = identify_nodes old_right_nodes last_ext_nodes_left renamed_right_hyperg in
+    let tmp_right_graph = identify_nodes old_right_nodes last_ext_nodes_left renamed_right_hyperg in
 
+    (*these nodes are now internal*)
+    let new_right_graph = internalise_nodes last_ext_nodes_left tmp_right_graph in
+    let new_left_graph = internalise_nodes last_ext_nodes_left left_hyperg in
     
     let common_fv = common_free_vars left_term right_term in
 
     (*identify the edges shared by free variables in right and left as well as the nodes they are incident on*)
-    let res_hypergraph = identify_free_var_edges common_fv left_hyperg new_right_graph in
+    let res_hypergraph = identify_free_var_edges common_fv new_left_graph new_right_graph in
+
+    (*print_string "max node rank: ";
+    print_int (List.length (last_ext_nodes (-1) res_hypergraph));
+    print_string "\n";*)
+    print_string "new graph\n";
+    let Hypergraph edge_list = res_hypergraph in
+    List.iter print_edge edge_list;
+    print_string "end\n";
+    
     res_hypergraph
 
 
@@ -269,6 +330,8 @@ let max_ext_node_rank hypergraph =
 
 (* for a term lambda x. u, assuming that sub_term_hgraph is the hypergraph derived from u and that bounded_var
  * is the term corresponding to x, will derive the hypergraph for lambda x. u *)
+(* we need to take the subgraph, look at the nodes that the edge labeled with the associated free variable
+ * are incident on and append them to the external nodes of the graph *)
 let abs_graph bounded_var sub_term_hgraph =
     let Hypergraph edge_list = sub_term_hgraph in
     
@@ -294,7 +357,7 @@ let abs_graph bounded_var sub_term_hgraph =
 (* returns a list of external nodes ranked and labeled from 1 to n in increasing order *)
 let ext_nodes_list n =
     let rec desc_list n = 
-        if n = 1 then [Node(1, 1)]
+        if n <= 1 then [Node(1, 1)]
         else Node(n, n)::(desc_list(n-1))
     in List.rev (desc_list n)
 
@@ -324,6 +387,11 @@ let rec hypergraph_of_term annotated_term = match annotated_term with
     | Constant (_, term_type) | FVar (_, term_type) | BVar (_, term_type) -> 
             let ext_nodes_num = type_atomic_card term_type in
             let nodes = ext_nodes_list ext_nodes_num in
+            (*List.iter (fun elem ->
+                let Node(label, _) = elem in
+                print_int label;
+                print_string "\n";
+            ) nodes;*)
             let term = term_of_annotated_term annotated_term in
             let hyperedge = Hyperedge (term, nodes) in
             Hypergraph [hyperedge]

@@ -23,6 +23,7 @@ type 'c lambda_term =
 
 (*returns true if and only if the terms are alpha equivalent*)
 (* i believe that a simple equality would work*)
+(* you believe wrongly, = behaves differently from alpha_eq for reasons unknown *)
 let rec alpha_eq term_1 term_2 =
     match term_1, term_2 with
         | Constant c1, Constant c2 -> c1 = c2
